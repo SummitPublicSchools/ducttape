@@ -102,3 +102,15 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# pycharm
+.idea
+
+# ignore config.ini files that might have passwords
+config.ini
+tests/config/*
+!tests/config/config_template.ini
+
+# ignore downloaded CSVs that result from tests
+examples/**/*.csv
+tests/data/**/*.csv

@@ -1,0 +1,16 @@
+#
+####### requirements.txt #######
+#
+###### Requirements without Version Specifiers ######
+beautifulsoup4
+future
+oauth2client
+numpy
+paramiko
+psycopg2
+requests
+#
+###### Requirements with Version Specifiers ######
+pandas >= 0.20.3
+selenium >= 3.4.3
+xlrd >= 0.9.0
