@@ -1,4 +1,4 @@
-![Logo of the project](https://github.com/SummitPublicSchools/sps-nwea-map-test-session-creator/blob/master/img/map_creator_logo_small.png)
+![Logo of the project](https://github.com/SummitPublicSchools/ducttape/blob/master/img/ducttape_logo.png)
 
 # Duct Tape
 
@@ -24,11 +24,11 @@ have not cut a release yet):
 0. Set up a Chrome + Selenium environment on your computer. Instructions [here](https://medium.com/@patrick.yoho11/installing-selenium-and-chromedriver-on-windows-e02202ac2b08).
 1. Download or clone the project to your computer.
 2. Navigate to the root `ducttape` directory (the one with the setup.py file in it). Run `pip install ./`.
-3. Check out the SchoolMint example in the `examples` folder to see how easy it can be to grab your data.
+3. Check out the SchoolMint example in the [`examples`](https://github.com/SummitPublicSchools/ducttape/tree/master/examples) folder to see how easy it can be to grab your data.
 
 ## Documentation
 A good number of functions have strong doc strings describing their purpose, parameters, and return types.
-For now, this along with a couple of examples are the primary sources of documentation.
+For now, this along with a couple of [examples](https://github.com/SummitPublicSchools/ducttape/tree/master/examples) are the primary sources of documentation.
 
 ## Features
 * Downloading data from ed-tech Web UIs without human interaction
