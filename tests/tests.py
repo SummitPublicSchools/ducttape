@@ -19,10 +19,10 @@ from ducttape.exceptions import (
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime as dt
 
-# logger = logging.getLogger()
-# logger.level = logging.DEBUG
-# stream_handler = logging.StreamHandler(sys.stdout)
-# logger.addHandler(stream_handler)
+logger = logging.getLogger()
+logger.level = logging.INFO
+stream_handler = logging.StreamHandler(sys.stdout)
+logger.addHandler(stream_handler)
 
 config = configparser.ConfigParser()
 config.read('./config/config.ini')
@@ -155,7 +155,11 @@ class TestLexiaDataSource(unittest.TestCase):
 
     #@unittest.skip('running subset of tests')
     def test_download_district_export_core5_monthly(self):
-        self.lx.download_district_export_core5_monthly()
+        df_result = self.lx.download_district_export_core5_monthly(
+            write_to_disk=''
+        )
+        self.assertTrue(isinstance(df_result, pd.DataFrame))
+        print(df_result.head())
 
     @unittest.skip('running subset of tests')
     def test_get_exportid_from_email(self):
@@ -187,7 +191,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
     def test_login(self):
         pass
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_download_url_report(self):
         url = (
             "/report/applicantsDynamicTable?group=all&school=all&application_status=all"
@@ -254,7 +258,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(result)
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_csv_custom_report_with_year_change(self):
         custom_report_name = 'Conversion Rates CA'
         school_year = '2015-2016'

@@ -134,6 +134,17 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         except TimeoutException:
             self.log.debug('No "Walk Me"overlay found.')
 
+        # remove "Homeroom" announcement
+        self.log.debug('Removing "Homeroom" and other wm-shoutout modals.')
+        try:
+            elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
+                EC.presence_of_element_located((By.ID, 'wm-shoutout'))
+            )
+            self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
+            self.log.debug('Success')
+        except TimeoutException:
+            self.log.debug('No "Homeroom" or other wm-shoutout modals found.')
+
     def _set_year(self, school_year, driver=None):
         """Sets the year for the SchoolMint interface.
 
