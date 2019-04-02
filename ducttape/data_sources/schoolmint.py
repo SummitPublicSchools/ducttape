@@ -138,7 +138,8 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         self.log.debug('Removing "Homeroom" and other wm-shoutout modals.')
         try:
             elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, 'wm-shoutout'))
+                # it turns out that the id can have numbers at the end (e.g. wm-shoutout-141590), so we need XPATH
+                EC.presence_of_element_located((By.XPATH, "//*[starts-with(@id, 'wm-shoutout')]"))
             )
             self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
             self.log.debug('Success')
