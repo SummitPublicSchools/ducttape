@@ -7,7 +7,7 @@ future
 oauth2client
 numpy
 paramiko
-psycopg2
+psycopg2-binary
 requests
 #
 ###### Requirements with Version Specifiers ######
