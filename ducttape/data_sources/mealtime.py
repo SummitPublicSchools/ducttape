@@ -50,7 +50,6 @@ class Mealtime(WebUIDataSource):
         csv_download_folder_path = self.temp_folder_path + '/' + temp_folder_name
         # set up the driver for execution
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
-        #self.driver = configure_selenium_chrome(csv_download_folder_path)
         self._login()
 
         # get the report url
