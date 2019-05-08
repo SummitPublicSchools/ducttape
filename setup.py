@@ -7,7 +7,7 @@ setuptools.setup(
     name='duct-tape',
     packages=setuptools.find_packages(),
     # using semver 2.0
-    version='0.23.0',
+    version='0.23.1',
     description='Duct Tape is a Python interface for downloading data, uploading data, and controlling supported Ed-Tech software.',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,7 +24,7 @@ setuptools.setup(
         'Operating System :: OS Independent'
     ],
     install_requires=[
-        'psycopg2>=2.7.1',
+        'psycopg2-binary>=2.7.1',
         'paramiko>=2.1.2',
         'beautifulsoup4>=4.5.1',
         'numpy',
