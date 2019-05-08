@@ -1,4 +1,4 @@
-![Logo of the project](https://github.com/SummitPublicSchools/ducttape/blob/master/img/duct-tape_480x150.png)
+![Logo of the project](https://raw.githubusercontent.com/SummitPublicSchools/ducttape/master/img/duct-tape_480x150.png)
 
 # Duct Tape
 

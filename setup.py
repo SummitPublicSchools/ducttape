@@ -1,15 +1,28 @@
-from distutils.core import setup
-setup(
-    name='ducttape',
-    packages=['ducttape', 'ducttape.data_sources'],
-    version='0.23',
+import setuptools
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name='duct-tape',
+    packages=setuptools.find_packages(),
+    # using semver 2.0
+    version='0.23.0',
     description='Duct Tape is a Python interface for downloading data, uploading data, and controlling supported Ed-Tech software.',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     author='Patrick Yoho',
     author_email='trickyoho@gmail.com',
     url='https://github.com/SummitPublicSchools/ducttape',
     download_url='',
     keywords=['automation', 'education', 'illuminate', 'selenium', 'etl'],
-    classifiers=[],
+    licencse='GNU GPLv3',
+    classifiers=[
+        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Operating System :: OS Independent'
+    ],
     install_requires=[
         'psycopg2>=2.7.1',
         'paramiko>=2.1.2',
