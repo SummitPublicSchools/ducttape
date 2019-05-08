@@ -201,6 +201,10 @@ class DriverBuilder:
         if chrome_option_prefs:
             prefs.update(chrome_option_prefs)
         chrome_options.add_experimental_option('prefs', prefs)
+        
+        # when run from a Docker container
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
 
         if headless:
             chrome_options.add_argument("--headless")
