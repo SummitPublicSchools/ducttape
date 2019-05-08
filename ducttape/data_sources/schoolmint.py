@@ -100,7 +100,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             elem = self.driver.find_element_by_id('walkme-overlay-all')
             self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
         except TimeoutException:
-            pass
+            self.log.debug('No wm-shoutout found')
 
     def __remove_walk_me_and_support(self):
         """Removes two third party overlays that can block buttons that selenium needs to click."""
