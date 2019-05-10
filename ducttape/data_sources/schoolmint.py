@@ -49,6 +49,10 @@ SCHOOLMINT_DEFAULT_EXPORT_ENCODING = 'utf-8-sig'
 WALKME_AND_SUPPORT_TIMEOUT = 5
 NUMBER_OF_RETRIES = 3
 
+GENERATE_REPORT_BUTTON_XPATH = (
+    "//tr[td[text() = '{report_name}' or text() = ' {report_name} ']]//button[contains(@class, 'export-data')]"
+)
+
 
 class SchoolMint(WebUIDataSource, LoggingMixin):
     """ Class for interacting with SchoolMint
@@ -331,13 +335,14 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 return current_page
             except NoSuchElementException:
                 current_page += 1
-                next_page_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page={}]/a'.format(
-                    current_page
-                )
-                self.driver.find_element_by_xpath(next_page_xpath).click()
+                if current_page < num_pages:
+                    next_page_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page={}]/a'.format(
+                        current_page
+                    )
+                    self.driver.find_element_by_xpath(next_page_xpath).click()
 
-                # scroll back to the top of the page, prevents selenium clicking errors
-                self.driver.execute_script("window.scrollTo(0, 0);")
+                    # scroll back to the top of the page, prevents selenium clicking errors
+                    self.driver.execute_script("window.scrollTo(0, 0);")
 
         raise ReportNotFound
 
@@ -352,58 +357,64 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         """
         self.__navigate_to_custom_report(report_name, school_year)
 
-        # Find and click the appropriate 'Generate Report' button
-        gen_report_xpath = (
-            "//tr[td//text()[contains(., '{}')]]//*"
-            "[@class='btn btn-primary btn-block export-data' and contains(text(), 'Generate Report')]"
-        ).format(report_name)
-
+        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
         try:
-            elem = self.driver.find_element_by_xpath(gen_report_xpath)
-            elem.click()
+            generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
+        except NoSuchElementException:
+            raise ReportNotFound
 
+        if generate_report_button.text == 'Generate Report':
+            generate_report_button.click()
             self.driver.close()
 
             return True
-        except NoSuchElementException:
-            try:
-                report_in_progress_xpath = (
-                    "//tr[td//text()[contains(., '{}')]]//*"
-                    "[@class='btn btn-primary btn-block export-data' and contains(text(), 'Report in Progress')]"
-                ).format(report_name)
-                elem = self.driver.find_element_by_xpath(report_in_progress_xpath)
+        elif generate_report_button.text == 'Report in Progress':
+            self.driver.close()
 
-                self.driver.close()
-                return False
-
-            except NoSuchElementException:
-                raise ReportNotFound
+            return False
+        else:
+            raise ValueError("Unknown 'Generate Report' button text found")
 
     def is_custom_report_generating(self, report_name, school_year):
         """Checks if a SchoolMint Custom Report is generating or not"""
         self.__navigate_to_custom_report(report_name, school_year)
 
-        generate_report_button_xpath = (
-            "//tr[td//text()[contains(., '{}')]]//*"
-            "[@class='btn btn-primary btn-block export-data']"
-        ).format(report_name)
-        generate_report_button_text = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, generate_report_button_xpath))).text
+        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name)
+        try:
+            generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
+        except NoSuchElementException:
+            raise ReportNotFound
 
-        if generate_report_button_text == 'Report in Progress':
+        if generate_report_button.text == 'Report in Progress':
             return True
-        else:
+        elif generate_report_button.text == 'Generate Report':
             return False
+        else:
+            raise ValueError("Unknown 'Generate Report' button text found")
 
     def get_last_custom_report_generation_datetime(self, report_name, school_year):
         """Get's a report's generation timestamp in raw text"""
         self.__navigate_to_custom_report(report_name, school_year)
 
-        report_generated_on_xpath = (
-            "//tr[td[./text()='{}']]/td[4]"
-        ).format(report_name)
-        report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
+        try:
+            # old custom reports interface
+            report_generated_on_xpath = (
+                "//tr[td[./text()='{}']]/td[4]"
+            ).format(report_name)
+            report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
+        except TimeoutException:
+            try:
+                # new custom reports interface
+                report_generated_on_xpath = (
+                    "//tr[td[text()=' {} ']]/td[contains(@class,'last_generated_date-td')]"
+                ).format(report_name)
+                report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
+            except TimeoutException:
+                raise ReportNotFound
 
         return report_generated_on_text
 
@@ -413,17 +424,13 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             download_folder_path = self.temp_folder_path
         self.__navigate_to_custom_report(report_name, school_year, download_folder_path)
 
-        generate_report_button_xpath = (
-            "//tr[td//text()[contains(., '{}')]]//*"
-            "[@class='btn btn-primary btn-block export-data']"
-        ).format(report_name)
+        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
         generate_report_button_text = WebDriverWait(self.driver, self.wait_time).until(
             EC.presence_of_element_located((By.XPATH, generate_report_button_xpath))).text
 
         download_button_xpath = (
-            "//tr[td//text()[contains(., '{}')]]//*"
-            "[@class='btn btn-success btn-block' and contains(text(), 'Download')]"
-        ).format(report_name)
+            "//tr[td[text() = '{report_name}' or text() = ' {report_name} ']]//a[contains(text(), 'Download')]"
+        ).format(report_name=report_name)
 
         elem = WebDriverWait(self.driver, self.wait_time).until(
             EC.presence_of_element_located((By.XPATH, download_button_xpath)))
