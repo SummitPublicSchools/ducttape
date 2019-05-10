@@ -187,7 +187,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
     def setUp(self):
         self.assertTrue(isinstance(self.sm, sm.SchoolMint))
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_login(self):
         pass
 
@@ -206,7 +206,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         print(result.head())
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_generate_custom_report(self):
         custom_report_name = 'Re-enrollment Data'
         # generate the report
@@ -222,14 +222,14 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(not result_two)
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_generate_custom_report_report_on_different_page(self):
-        custom_report_name = 'All form data form Additional 18-19 Enrollment Forms - Rainier'
+        custom_report_name = 'Interested Families CA 18-19'
         result = self.sm.generate_custom_report(custom_report_name, '2018-2019')
 
         self.assertTrue(result)
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_get_last_custom_report_generation_time(self):
         custom_report_name = 'Application Data'
 
@@ -240,7 +240,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
         # We will need to check the datetime is returned properly manually
         return True
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_download_csv_custom_report(self):
         custom_report_name = 'All Siblings'
         school_year = '2017-2018'
@@ -251,14 +251,14 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         print(result.head())
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_set_year(self):
         year = '2016-2017'
         result = self.sm._set_year(year)
 
         self.assertTrue(result)
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_download_csv_custom_report_with_year_change(self):
         custom_report_name = 'Conversion Rates CA'
         school_year = '2015-2016'
@@ -269,7 +269,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         print(result.head())
 
-    @unittest.skip('running subset of tests')
+    #@unittest.skip('running subset of tests')
     def test_download_zip_custom_report(self):
         custom_report_name = 'Application Data'
         school_year = '2018-2019'
