@@ -380,7 +380,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         """Checks if a SchoolMint Custom Report is generating or not"""
         self.__navigate_to_custom_report(report_name, school_year)
 
-        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name)
+        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
         try:
             generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
                 EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
@@ -521,13 +521,13 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 if re.match("^(\d+)", csv_filename):
                     num_beg = re.match("^(\d+)", csv_filename).group(0)
                     words = re.findall("[A-Za-z]+", csv_filename)
-                    dict_key = "{}_{}".format(num_beg, '_'.join(words[0:3])).lower()
+                    dict_key = csv_filename # "{}_{}".format(num_beg, '_'.join(words[0:3])).lower()
                     dfs[dict_key] = pd.read_csv(csv_filepath, encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING,
                                                 skiprows=[0, 2], **pandas_read_csv_kwargs)
                 # otherwise it is the info file that comes along with the zip export (application-data-export, etc.)
                 else:
                     words = re.findall("[A-Za-z]+", csv_filename)
-                    dict_key = "{}".format('_'.join(words[0:3])).lower()
+                    dict_key = csv_filename # "{}".format('_'.join(words[0:3])).lower()
 
                     dfs[dict_key] = pd.read_csv(csv_filepath, encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING,
                                                 **pandas_read_csv_kwargs)
