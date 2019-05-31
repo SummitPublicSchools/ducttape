@@ -153,9 +153,25 @@ class TestLexiaDataSource(unittest.TestCase):
 
         # TODO add assertion that file is created in expected dir
 
-    #@unittest.skip('running subset of tests')
+    # @unittest.skip('running subset of tests')
     def test_download_district_export_core5_monthly(self):
         df_result = self.lx.download_district_export_core5_monthly(
+            write_to_disk=''
+        )
+        self.assertTrue(isinstance(df_result, pd.DataFrame))
+        print(df_result.head())
+
+    # @unittest.skip('running subset of tests')
+    def test_download_district_export_core5_ytd(self):
+        df_result = self.lx.download_district_export_core5_year_to_date(
+            write_to_disk=''
+        )
+        self.assertTrue(isinstance(df_result, pd.DataFrame))
+        print(df_result.head())
+
+    # @unittest.skip('running subset of tests')
+    def test_download_district_export_powerup_ytd(self):
+        df_result = self.lx.download_district_export_powerup_year_to_date(
             write_to_disk=''
         )
         self.assertTrue(isinstance(df_result, pd.DataFrame))
@@ -731,13 +747,13 @@ class TestCleverDataSource(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # uncomment the next two lines to just test the SchoolMint code
-    # lexia = unittest.defaultTestLoader.loadTestsFromTestCase(TestLexiaDataSource)
-    # unittest.TextTestRunner().run(lexia)
+    # uncomment the next two lines to just test the Lexia code
+    lexia = unittest.defaultTestLoader.loadTestsFromTestCase(TestLexiaDataSource)
+    unittest.TextTestRunner().run(lexia)
 
     # uncomment the next two lines to just test the SchoolMint code
-    schoolmint = unittest.defaultTestLoader.loadTestsFromTestCase(TestSchoolMintDataSource)
-    unittest.TextTestRunner().run(schoolmint)
+    # schoolmint = unittest.defaultTestLoader.loadTestsFromTestCase(TestSchoolMintDataSource)
+    # unittest.TextTestRunner().run(schoolmint)
 
     # uncomment the next two lines to just test the GoogleSpreadsheet code
     # googlesheets = unittest.defaultTestLoader.loadTestsFromTestCase(GoogleSpreadsheetTest)

@@ -31,7 +31,10 @@ from ducttape.utils import (
     DriverBuilder,
     LoggingMixin,
 )
-from ducttape.exceptions import InvalidLoginCredentials
+from ducttape.exceptions import (
+    InvalidLoginCredentials,
+    ReportNotFound,
+)
 
 LEXIA_CSV_ENCODING = 'utf-8'
 
@@ -50,7 +53,6 @@ class Lexia(WebUIDataSource, LoggingMixin):
         self.district_export_email_address = district_export_email_address
         self.district_export_email_password = district_export_email_password
         self.district_export_email_imap_uri = district_export_email_imap_uri
-        self.district_export_email_address = district_export_email_address
         self.district_export_email_folder = district_export_email_folder
         self.district_export_email_wait_time = district_export_email_wait_time
         self.district_export_email_retry_frequency = district_export_email_retry_frequency
@@ -208,7 +210,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
     def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
-            report_type='Core5 Monthly Export',
+            report_type='export',
             period_end_date=dt.datetime.now().date(),
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
@@ -216,7 +218,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
     def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
-            report_type='Core5 Year to Date Export',
+            report_type='expytd',
             period_end_date=dt.datetime.now().date(),
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
@@ -224,7 +226,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
     def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
-            report_type='PowerUp Year to Date Export',
+            report_type='pupytd',
             period_end_date=dt.datetime.now().date(),
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
@@ -236,6 +238,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
             period_start_date = self.lexia_school_year_start_date
         self.__request_district_export(report_type, period_start_date, period_end_date)
 
+        df_report = None
         number_retries = int(self.district_export_email_wait_time / self.district_export_email_retry_frequency)
         for retry_count in range(0, number_retries):
             self.log.info(str(self.district_id) + ': get export_id from email, try: ' + str(retry_count))
@@ -257,7 +260,10 @@ class Lexia(WebUIDataSource, LoggingMixin):
             except ValueError as e:
                 self.log.error(e)
                 time.sleep(self.district_export_email_retry_frequency)
-        return df_report
+        if df_report is None:
+            raise ReportNotFound('No email was received with report id. Make sure the emails are not going to spam.')
+        else:
+            return df_report
 
     def __request_district_export(self, report_type, period_start_date=None, period_end_date=None,
                                   write_to_disk=None):
@@ -287,7 +293,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
             payload = {
                 "districtID": self.district_id,
-                "type": 'export',
+                "type": report_type,
                 "email": self.district_export_email_address,
                 "startDate": period_start_date.strftime("%Y-%m-%d"),
                 "endDate": period_end_date.strftime("%Y-%m-%d")
