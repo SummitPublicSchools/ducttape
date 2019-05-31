@@ -42,3 +42,7 @@ class NoDataError(DuctTapeException):
 
 class InvalidLoginCredentials(DuctTapeException):
     """The username or password for logging in is incorrect."""
+
+
+class InvalidIMAPParameters(DuctTapeException):
+    """Check the credentials and the email folder for the email account."""

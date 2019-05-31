@@ -34,6 +34,8 @@ from ducttape.utils import (
 from ducttape.exceptions import (
     InvalidLoginCredentials,
     ReportNotFound,
+    InvalidIMAPParameters,
+    NoDataError,
 )
 
 LEXIA_CSV_ENCODING = 'utf-8'
@@ -241,8 +243,9 @@ class Lexia(WebUIDataSource, LoggingMixin):
         df_report = None
         number_retries = int(self.district_export_email_wait_time / self.district_export_email_retry_frequency)
         for retry_count in range(0, number_retries):
+            if retry_count > 0:
+                time.sleep(self.district_export_email_retry_frequency)
             self.log.info(str(self.district_id) + ': get export_id from email, try: ' + str(retry_count))
-            # catch the case where there is
             try:
                 export_id = self.__get_exportid_from_email()
             except ValueError as err:
@@ -257,9 +260,12 @@ class Lexia(WebUIDataSource, LoggingMixin):
             try:
                 df_report = self.__download_export_for_exportid(export_id, write_to_disk, pandas_read_csv_kwargs)
                 break
-            except ValueError as e:
-                self.log.error(e)
-                time.sleep(self.district_export_email_retry_frequency)
+            except NoDataError as e:
+                self.log.warning('{}: {} Retrying in {} seconds.'.format(
+                    self.district_id,
+                    e,
+                    self.district_export_email_retry_frequency
+                ))
         if df_report is None:
             raise ReportNotFound('No email was received with report id. Make sure the emails are not going to spam.')
         else:
@@ -333,7 +339,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         rv, data = imap_conn.select('"{}"'.format(self.district_export_email_folder))
         if rv == 'OK':
             self.log.info('Processing mailbox for ' + self.district_export_email_address +
-                             ' in folder ' + self.district_export_email_folder)
+                          ' in folder "' + self.district_export_email_folder + '"')
             export_id = self.__extract_lexia_export_id_from_email(imap_conn)
             if export_id == -1:
                 raise ValueError('No new export_id found on ' + self.district_export_email_address)
@@ -342,7 +348,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
                 return export_id
 
         else:
-            self.log.error("ERROR: Unable to open mailbox ", rv)
+            raise InvalidIMAPParameters(
+                "ERROR: Unable to open mailbox. Check your parameters and email folder. Message: ", rv)
             imap_conn.logout()
 
     def __extract_lexia_export_id_from_email(self, imap_conn):
@@ -428,7 +435,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
                 # if the dataframe is empty (the report had no data), raise an error
                 if df_report.shape[0] == 0:
-                    raise ValueError('No data in report for user {} at url: {}'.format(
+                    raise NoDataError('No data in report for user {} at url: {}'.format(
                         self.username, export_url))
             else:
                 raise ValueError('Report download request failed')

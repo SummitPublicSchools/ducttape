@@ -14,7 +14,8 @@ from ducttape.data_sources import informedk12 as ik12
 from ducttape.data_sources import lexia as lx
 from ducttape.exceptions import (
     InvalidLoginCredentials,
-    ReportNotFound
+    ReportNotFound,
+    InvalidIMAPParameters,
 )
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime as dt
@@ -69,6 +70,48 @@ class TestLexiaDataSource(unittest.TestCase):
         }
 
         cls.lx_bad_login = lx.Lexia(**args_bad_login)
+
+        args_test_email_timeout = {
+            'hostname': config[config_section_name]['hostname'],
+            'username': config[config_section_name]['username'],
+            'password': config[config_section_name]['password'],
+            'wait_time': int(config[config_section_name]['wait_time']),
+            'temp_folder_path': config[config_section_name]['temp_folder_path'],
+            'lexia_school_year_start_date': dt.datetime.strptime(
+                config[config_section_name]['lexia_school_year_start_date'],
+                '%Y-%m-%d'
+            ).date(),
+            'headless': config[config_section_name].getboolean('headless'),
+            'district_export_email_address': config[config_section_name]['district_export_email_address'],
+            'district_export_email_password': config[config_section_name]['district_export_email_password'],
+            'district_export_email_imap_uri': config[config_section_name]['district_export_email_imap_uri'],
+            'district_id': int(config[config_section_name]['district_id']),
+            'district_export_email_folder': 'bad_folder',
+            'district_export_email_wait_time': 60
+        }
+
+        cls.lx_test_email_timeout = lx.Lexia(**args_test_email_timeout)
+
+        args_test_email_non_existant_folder = {
+            'hostname': config[config_section_name]['hostname'],
+            'username': config[config_section_name]['username'],
+            'password': config[config_section_name]['password'],
+            'wait_time': int(config[config_section_name]['wait_time']),
+            'temp_folder_path': config[config_section_name]['temp_folder_path'],
+            'lexia_school_year_start_date': dt.datetime.strptime(
+                config[config_section_name]['lexia_school_year_start_date'],
+                '%Y-%m-%d'
+            ).date(),
+            'headless': config[config_section_name].getboolean('headless'),
+            'district_export_email_address': config[config_section_name]['district_export_email_address'],
+            'district_export_email_password': config[config_section_name]['district_export_email_password'],
+            'district_export_email_imap_uri': config[config_section_name]['district_export_email_imap_uri'],
+            'district_id': int(config[config_section_name]['district_id']),
+            'district_export_email_folder': '',
+            'district_export_email_wait_time': 30
+        }
+
+        cls.lx_test_email_non_existant_folder = lx.Lexia(**args_test_email_non_existant_folder)
 
     def setUp(self):
         self.assertTrue(isinstance(self.lx, lx.Lexia))
@@ -153,7 +196,7 @@ class TestLexiaDataSource(unittest.TestCase):
 
         # TODO add assertion that file is created in expected dir
 
-    # @unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_district_export_core5_monthly(self):
         df_result = self.lx.download_district_export_core5_monthly(
             write_to_disk=''
@@ -161,7 +204,7 @@ class TestLexiaDataSource(unittest.TestCase):
         self.assertTrue(isinstance(df_result, pd.DataFrame))
         print(df_result.head())
 
-    # @unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_district_export_core5_ytd(self):
         df_result = self.lx.download_district_export_core5_year_to_date(
             write_to_disk=''
@@ -169,13 +212,27 @@ class TestLexiaDataSource(unittest.TestCase):
         self.assertTrue(isinstance(df_result, pd.DataFrame))
         print(df_result.head())
 
-    # @unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_district_export_powerup_ytd(self):
         df_result = self.lx.download_district_export_powerup_year_to_date(
             write_to_disk=''
         )
         self.assertTrue(isinstance(df_result, pd.DataFrame))
         print(df_result.head())
+
+    # @unittest.skip('running subset of tests')
+    def test_download_district_export_email_timeout(self):
+        with self.assertRaises(ReportNotFound):
+            self.lx_test_email_timeout.download_district_export_powerup_year_to_date(
+                write_to_disk=''
+            )
+
+    @unittest.skip('running subset of tests')
+    def test_download_district_export_bad_folder(self):
+        with self.assertRaises(InvalidIMAPParameters):
+            self.lx_test_email_non_existant_folder.download_district_export_powerup_year_to_date(
+                write_to_disk=''
+            )
 
     @unittest.skip('running subset of tests')
     def test_get_exportid_from_email(self):
