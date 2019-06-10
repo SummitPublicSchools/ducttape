@@ -111,6 +111,7 @@ config.ini
 tests/config/*
 !tests/config/config_template.ini
 
-# ignore downloaded CSVs that result from tests
+# ignore downloaded CSVs and similar that result from tests
 examples/**/*.csv
 tests/data/**/*.csv
+tests/data/**/*.zip
