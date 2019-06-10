@@ -210,26 +210,29 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         return df_report
 
-    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={}):
+    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={},
+                                               period_end_date=dt.datetime.now().date()):
         return self._download_district_export(
             report_type='export',
-            period_end_date=dt.datetime.now().date(),
+            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
+    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
+                                                    period_end_date=dt.datetime.now().date()):
         return self._download_district_export(
             report_type='expytd',
-            period_end_date=dt.datetime.now().date(),
+            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
+    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
+                                                      period_end_date=dt.datetime.now().date()):
         return self._download_district_export(
             report_type='pupytd',
-            period_end_date=dt.datetime.now().date(),
+            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
@@ -304,6 +307,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
                 "startDate": period_start_date.strftime("%Y-%m-%d"),
                 "endDate": period_end_date.strftime("%Y-%m-%d")
             }
+            self.log.info('{}: Export request payload: {}'.format(self.district_id, payload))
             download_response = s.put(self.base_url + '/exportData/progress', data=payload)
 
             if download_response.ok:
@@ -416,7 +420,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
             A Pandas dataframe with the report contents
         """
         self.log.info(str(self.district_id) + ': downloading report with export_id=' +
-                         str(export_id))
+                      str(export_id))
         with requests.Session() as s:
             for cookie in self.driver.get_cookies():
                 s.cookies.set(cookie['name'], cookie['value'])
