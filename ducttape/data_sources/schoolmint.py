@@ -88,12 +88,22 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             except ElementNotVisibleException:
                 count += 1
 
-        # wait until the page fully loads to ensure that login succeeded
+        # check that login succeeded by looking for the 'Student search' box
         try:
             elem = WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'student-lookup')))
         except TimeoutException:
             self.driver.close()
             raise InvalidLoginCredentials
+
+        # wait for the page to fully load - the walk-me player is the last thing, but since it's a third
+        # party add-on we'll wait for the filters on the application index first
+        WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located(
+            (By.CLASS_NAME, 'report-filters')))
+        # now we'll wait for the walk "Walk Me Through" overlay in the bottom right
+        try:
+            WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'walkme-player')))
+        except TimeoutException:
+            pass
 
         # deal with the walk_me announcement pop-ups overlays
         try:
@@ -108,6 +118,46 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
     def __remove_walk_me_and_support(self):
         """Removes two third party overlays that can block buttons that selenium needs to click."""
+        self.log.info('Removing "Walk-Me" and "Support" overlays.')
+        walkme = True
+        # wait for walk-me to load
+        try:
+            WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'walkme-player')))
+        except TimeoutException:
+            self.log.info('Probably no Walk-Me found')
+            walkme = False
+
+        if walkme:
+            self.log.debug('Removing "Walk Me" overlay.')
+            try:
+                for id in ['walkme-player', 'walkme-overlay-all']:
+                    elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
+                        EC.presence_of_element_located((By.ID, id))
+                    )
+                    self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
+                self.log.debug('Success')
+                self.log.debug('Removing "Walk Me" bouncing overlay.')
+                try:
+                    elem = self.driver.find_element_by_id('walkme-attengrab')
+                    self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
+                    self.log.debug('Success')
+                except NoSuchElementException:
+                    self.log.debug('No "Walk Me" bouncing overlay found.')
+            except TimeoutException:
+                self.log.debug('No "Walk Me" overlay found.')
+
+            # remove "Homeroom" announcement
+            self.log.debug('Removing "Homeroom" and other wm-shoutout modals.')
+            try:
+                elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
+                    # it turns out that the id can have numbers at the end (e.g. wm-shoutout-141590), so we need XPATH
+                    EC.presence_of_element_located((By.XPATH, "//*[starts-with(@id, 'wm-shoutout')]"))
+                )
+                self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
+                self.log.debug('Success')
+            except TimeoutException:
+                self.log.debug('No "Homeroom" or other wm-shoutout modals found.')
+
         # remove 'Support' button
         self.log.debug('Trying to remove "Support" overlay.')
         try:
@@ -119,36 +169,6 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         except TimeoutException:
             self.log.debug('No "Support" overlay found.')
             pass
-
-        # remove walk me
-        self.log.debug('Removing "Walk Me" overlay.')
-        try:
-            elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, 'walkme-player'))
-            )
-            self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-            self.log.debug('Success')
-            self.log.debug('Removing "Walk Me" bouncing overlay.')
-            try:
-                elem = self.driver.find_element_by_id('walkme-attengrab')
-                self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-                self.log.debug('Success')
-            except NoSuchElementException:
-                self.log.debug('No "Walk Me" bouncing overlay found.')
-        except TimeoutException:
-            self.log.debug('No "Walk Me"overlay found.')
-
-        # remove "Homeroom" announcement
-        self.log.debug('Removing "Homeroom" and other wm-shoutout modals.')
-        try:
-            elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                # it turns out that the id can have numbers at the end (e.g. wm-shoutout-141590), so we need XPATH
-                EC.presence_of_element_located((By.XPATH, "//*[starts-with(@id, 'wm-shoutout')]"))
-            )
-            self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-            self.log.debug('Success')
-        except TimeoutException:
-            self.log.debug('No "Homeroom" or other wm-shoutout modals found.')
 
     def _set_year(self, school_year, driver=None):
         """Sets the year for the SchoolMint interface.
@@ -180,7 +200,6 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 'Passed value for school_year: {}'
             ).format(school_year)
 
-            #raise type(e)(str(e) + message).with_traceback(sys.exc_info()[2])
             raise_with_traceback(type(e)(str(e) + message))
 
         # wait for the page to be ready again
@@ -193,6 +212,15 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             self.driver.close()
 
         return True
+
+    def check_school_year(self, school_year):
+        """Checks that the school year is set as expected in the UI."""
+        elem = self.driver.find_element_by_xpath(
+            "//a[contains(@class,'dropdown-toggle enrollment')]/span[contains(@class,'current')]")
+        if school_year in elem.text:
+            return True
+        else:
+            return False
 
     def download_url_report(self, report_url, school_year, temp_folder_name=None, pandas_read_csv_kwargs={}):
         """ Downloads a SchoolMint data-stream-table report.
@@ -216,7 +244,6 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         # set up the driver for execution
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
-        #self.driver = configure_selenium_chrome(csv_download_folder_path)
         self._login()
         self._set_year(school_year, self.driver)
 
@@ -230,6 +257,9 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             EC.presence_of_element_located((By.XPATH, "//*[@id='stream-table']/tbody/tr[1]/td[1]"))
         )
 
+        if not self.check_school_year(school_year):
+            raise ReportNotFound("Wrong school detected prior to clicking generate.")
+
         self.log.debug('Waiting for report-data-summary to load')
         # wait until the stream table is fully loaded before downloading
         prev_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
@@ -241,8 +271,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         while True:
             # check id=report-data-summary
             report_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
-            # print(prev_data_summary_elem)
-            # print(report_data_summary_elem)
+
             # if it matches, wait a little longer and double deck that it hasn't changed
             if prev_data_summary_elem == report_data_summary_elem:
                 time.sleep(3)
@@ -356,6 +385,9 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             the report is generating.
         """
         self.__navigate_to_custom_report(report_name, school_year)
+
+        if not self.check_school_year(school_year):
+            raise ReportNotFound("Wrong school detected prior to clicking generate.")
 
         generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
         try:
