@@ -68,9 +68,6 @@ def get_most_recent_file_in_dir(folder_path):
     return latest_file
 
 
-
-
-
 def interpret_report_url(base_url, report_url):
     """ Allows flexibility in how report urls are passed to functions
 
@@ -93,12 +90,13 @@ def interpret_report_url(base_url, report_url):
         return base_url + '/' + report_url
 
 
-def wait_for_any_file_in_folder(folder_path, file_format=None):
+def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
     """ Waits until the first file shows up in a folder.
     """
+    count = 0
     if not file_format:
         file_found = False
-        while True:
+        while count < timeout:
             for root, folders, files in os.walk(folder_path):
                 # break 'for' loop if files found
                 if files:
@@ -111,7 +109,7 @@ def wait_for_any_file_in_folder(folder_path, file_format=None):
             time.sleep(1)
     else:
         file_found = False
-        while True:
+        while count < timeout:
             for root, folders, files in os.walk(folder_path):
                 for f in files:
                     if f.endswith(file_format):
