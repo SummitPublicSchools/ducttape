@@ -264,7 +264,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
     def test_login(self):
         pass
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_url_report(self):
         url = (
             "/report/applicantsDynamicTable?group=all&school=all&application_status=all"
@@ -279,7 +279,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         print(result.head())
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_generate_custom_report(self):
         custom_report_name = 'Re-enrollment Data'
         # generate the report
@@ -295,7 +295,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(not result_two)
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_generate_custom_report_report_on_different_page(self):
         custom_report_name = 'Interested Families CA 18-19'
         result = self.sm.generate_custom_report(custom_report_name, '2018-2019')
@@ -324,16 +324,18 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         print(result.head())
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_set_year(self):
         year = '2016-2017'
         result = self.sm._set_year(year)
 
         self.assertTrue(result)
 
+        self.assertTrue(self.sm.check_school_year(year))
+
     #@unittest.skip('running subset of tests')
     def test_download_csv_custom_report_with_year_change(self):
-        custom_report_name = 'Conversion Rates CA'
+        custom_report_name = 'Conversion Rates CA 15-16'
         school_year = '2015-2016'
 
         result = self.sm.download_csv_custom_report(custom_report_name, school_year)
@@ -345,7 +347,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
     #@unittest.skip('running subset of tests')
     def test_download_zip_custom_report(self):
         custom_report_name = 'Application Data'
-        school_year = '2018-2019'
+        school_year = '2019-2020'
 
         result = self.sm.download_zip_custom_report(
             report_name=custom_report_name,
@@ -805,12 +807,12 @@ class TestCleverDataSource(unittest.TestCase):
 
 if __name__ == '__main__':
     # uncomment the next two lines to just test the Lexia code
-    lexia = unittest.defaultTestLoader.loadTestsFromTestCase(TestLexiaDataSource)
-    unittest.TextTestRunner().run(lexia)
+    # lexia = unittest.defaultTestLoader.loadTestsFromTestCase(TestLexiaDataSource)
+    # unittest.TextTestRunner().run(lexia)
 
     # uncomment the next two lines to just test the SchoolMint code
-    # schoolmint = unittest.defaultTestLoader.loadTestsFromTestCase(TestSchoolMintDataSource)
-    # unittest.TextTestRunner().run(schoolmint)
+    schoolmint = unittest.defaultTestLoader.loadTestsFromTestCase(TestSchoolMintDataSource)
+    unittest.TextTestRunner().run(schoolmint)
 
     # uncomment the next two lines to just test the GoogleSpreadsheet code
     # googlesheets = unittest.defaultTestLoader.loadTestsFromTestCase(GoogleSpreadsheetTest)
