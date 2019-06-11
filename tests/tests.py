@@ -260,7 +260,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
     def setUp(self):
         self.assertTrue(isinstance(self.sm, sm.SchoolMint))
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_login(self):
         pass
 
@@ -302,7 +302,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(result)
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_get_last_custom_report_generation_time(self):
         custom_report_name = 'Application Data'
 
@@ -313,7 +313,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
         # We will need to check the datetime is returned properly manually
         return True
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_csv_custom_report(self):
         custom_report_name = 'All Siblings'
         school_year = '2017-2018'
@@ -333,7 +333,7 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(self.sm.check_school_year(year))
 
-    #@unittest.skip('running subset of tests')
+    @unittest.skip('running subset of tests')
     def test_download_csv_custom_report_with_year_change(self):
         custom_report_name = 'Conversion Rates CA 15-16'
         school_year = '2015-2016'
@@ -359,11 +359,10 @@ class TestSchoolMintDataSource(unittest.TestCase):
 
         self.assertTrue(isinstance(result, dict))
 
-        self.assertTrue(isinstance(result['application_data_exporter'], pd.DataFrame))
-
-        print(result.keys())
-
-        print(result['application_data_exporter'].head())
+        for key in result.keys():
+            if 'application_data_exporter' in key:
+                self.assertTrue(isinstance(result[key], pd.DataFrame))
+                print(result[key].head())
 
 
 class TestInformedK12DataSource(unittest.TestCase):
