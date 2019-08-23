@@ -207,7 +207,7 @@ class DriverBuilder:
         if headless:
             chrome_options.add_argument("--headless")
 
-        driver = Chrome(chrome_options=chrome_options)
+        driver = Chrome(options=chrome_options)
 
         if headless:
             self._enable_download_in_headless_chrome(driver, download_location)
