@@ -22,6 +22,7 @@ class WebUIDataSource(with_metaclass(ABCMeta)):
         if temp_folder_path:
             self.temp_folder_path = temp_folder_path
         self.headless = headless
+        self.driver = None
 
     @abstractmethod
     def _login(self):
