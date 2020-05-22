@@ -16,6 +16,7 @@ The following products are currently supported, some have more functionality tha
 * Informed K12
 * Mealtime
 * Typing Agent
+* Summit Learning
 
 ## Installing / Getting started
 
