@@ -3,9 +3,16 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from future.utils import raise_with_traceback
 import pandas as pd
+import time
 from tempfile import mkdtemp
 import shutil
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    ElementNotVisibleException,
+)
 
 from ducttape.utils import (
     interpret_report_url,
@@ -19,6 +26,8 @@ from ducttape.exceptions import (
     ReportNotFound,
     NoDataError,
 )
+
+REPORT_GENERATION_WAIT = 10
 
 
 class SummitLearning(WebUIDataSource, LoggingMixin):
@@ -34,17 +43,28 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             login_url = self.base_url + '/auth/google_oauth2'
             self.driver.get(login_url)
 
-            elem = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.ID, 'identifierId')))
+            # the Google login screen has multiple versions - the 'Email' one
+            # seems to be used when headless
+            try:
+                elem = self.driver.find_element_by_id('Email')
+            except NoSuchElementException:
+                elem = self.driver.find_element_by_id('identifierId')
             elem.clear()
             elem.send_keys(self.username)
             elem.send_keys(Keys.RETURN)
 
+            # headless version of Google Login
             elem = WebDriverWait(self.driver, self.wait_time).until(
-                EC.visibility_of_element_located((By.NAME, 'password')))
+                EC.visibility_of_element_located((By.ID, 'password'))
+            )
+            # regular version of Google login
+            if elem.tag_name == 'div':
+                elem = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.element_to_be_clickable((By.NAME, 'password')))
             elem.send_keys(self.password)
             elem.send_keys(Keys.RETURN)
 
+        # wait for the destination page to fully load
         WebDriverWait(self.driver, self.wait_time).until(
             EC.presence_of_element_located((By.CLASS_NAME, 'app-teacher')))
 
@@ -89,6 +109,128 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         if df_report.shape[0] == 0:
             raise NoDataError('No data in report for user {} at url: {}'.format(
                 self.username, interpret_report_url(self.base_url, report_url)))
+
+        self.driver.close()
+
+        if not write_to_disk:
+            shutil.rmtree(csv_download_folder_path)
+
+        return df_report
+
+    def _set_dl_academic_year(self, academic_year):
+        """Sets the academic year to download the reports from
+
+        Args:
+            academic_year (string): The academic year that should be selected. Use the format shown in the
+                Summit Learning interface. Example: '2016-2017'
+
+        :return: True if function succeeds
+        """
+        # The UI uses a '–' instead of a '-'. We'll make a convenience replacement
+        academic_year = academic_year.replace('-', '–')
+
+        self.log.debug('Changing academic year to: {}'.format(academic_year))
+
+        # open the menu to select the academic year
+        elem = self.driver.find_element_by_id('academic-year-selector')
+        elem.click()
+
+        # select the appropriate year
+        try:
+            year_xpath = "//*[@id='academic-year-selector']/parent::div//a[contains(text(),'{}')]".format(
+                academic_year)
+            elem = self.driver.find_element_by_xpath(year_xpath)
+            elem.click()
+        except NoSuchElementException as e:
+            self.driver.save_screenshot('cannot_find_year.png')
+            message = (
+                ' Check that the academic_year variable is valid. '
+                'Passed value for academic_year: {}'
+            ).format(academic_year)
+
+            raise_with_traceback(type(e)(str(e) + message))
+
+        return True
+
+    def check_dl_academic_year(self, academic_year):
+        """Checks that the academic year is set as expected in the UI."""
+        # The UI uses a '–' instead of a '-'. We'll make a convenience replacement
+        academic_year = academic_year.replace('-', '–')
+
+        elem = self.driver.find_element_by_xpath("//*[@id='academic-year-selector']/parent::div//button")
+
+        if academic_year in elem.text:
+            return True
+        else:
+            return False
+
+    def download_site_data_download(self, dl_heading, site_id, academic_year, report_generation_wait=REPORT_GENERATION_WAIT,
+                                write_to_disk=None, **kwargs):
+        if write_to_disk:
+            csv_download_folder_path = write_to_disk
+        else:
+            csv_download_folder_path = mkdtemp()
+        self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
+        self._login()
+
+        dl_page_url = "{base_url}/sites/{site_id}/data_downloads/".format(
+            base_url=self.base_url,
+            site_id=site_id
+        )
+
+        self.driver.get(dl_page_url)
+
+        self._set_dl_academic_year(academic_year)
+
+        if not self.check_dl_academic_year(academic_year):
+            raise ValueError("Academic Year not correctly set")
+
+        # start the CSV generation process
+        gen_button_xpath = "//h4[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
+
+        # try to find the "Generate CSV" button
+        try:
+            elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                             button_text='Generate CSV'))
+            elem.click()
+        # if it's not there, it may have changed to a "Refresh" button
+        except NoSuchElementException as e:
+            elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                             button_text='Refresh'))
+            elem.click()
+
+        # wait for the refresh command to be issued
+        time.sleep(1)
+
+        # wait for the report to be available and download it
+        self.log.info('Starting download of report "{}" for site_id "{}"'.format(dl_heading, site_id))
+
+        dl_button_xpath = "//h4[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), 'Download')]"
+        try:
+            elem = WebDriverWait(self.driver, report_generation_wait).until(
+                EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
+            )
+            elem.click()
+        # if the download is not ready, refresh the page and try one more time
+        except TimeoutException:
+            self.driver.refresh()
+            elem = WebDriverWait(self.driver, report_generation_wait).until(
+                EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
+            )
+            elem.click()
+
+
+
+        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
+        self.log.debug('Download Finished.')
+
+        df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
+                                **kwargs)
+
+        # if the dataframe is empty (the report had no data), raise an error
+        if df_report.shape[0] == 0:
+            raise NoDataError('No data in report "{}" for site_id "{}"'.format(
+                dl_heading, site_id))
 
         self.driver.close()
 
