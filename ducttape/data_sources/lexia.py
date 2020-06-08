@@ -74,6 +74,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         elem.clear()
         elem.send_keys(self.username)
         elem.send_keys(Keys.RETURN)
+        time.sleep(2)
         elem = WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'login-password')))
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
