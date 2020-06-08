@@ -66,7 +66,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         """ Logs into the provided Lexia instance.
         """
         login_url = self.uri_scheme + 'auth.mylexia.com/mylexiaLogin'
-        self.log.debug('Logging into Lexia at: {}'.format(login_url))
+        self.log.info('Logging into Lexia at: {}'.format(login_url))
         self.driver.get(login_url)
         elem = WebDriverWait(self.driver, self.wait_time).until(
             EC.presence_of_element_located((By.ID, 'username')))
@@ -116,7 +116,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
         self._login()
 
-        self.log.debug('Getting report page at: {}'.format(report_download_url))
+        self.log.info('Getting report page at: {}'.format(report_download_url))
         self.driver.get(report_download_url)
 
         # find and click the download button
@@ -124,11 +124,11 @@ class Lexia(WebUIDataSource, LoggingMixin):
             EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'Export')]"))
         )
 
-        self.log.debug('Starting download of: '.format(report_download_url))
+        self.log.info('Starting download of: '.format(report_download_url))
         elem.click()
 
         wait_for_any_file_in_folder(csv_download_folder_path, "xlsx")
-        self.log.debug('Downloada Finished.')
+        self.log.info('Download Finished.')
 
         df_report = pd.read_excel(get_most_recent_file_in_dir(csv_download_folder_path),
                                 **kwargs)
@@ -168,7 +168,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         self._login()
 
         report_download_url = interpret_report_url(self.base_url, report_url)
-        self.log.debug('Getting report page at: {}'.format(report_download_url))
+        self.log.info('Getting report page at: {}'.format(report_download_url))
         self.driver.get(report_download_url)
 
         # select all users and find the download button
@@ -190,11 +190,11 @@ class Lexia(WebUIDataSource, LoggingMixin):
             lambda x: check_for_export_button_enabled(self.driver, (By.NAME, "lexia-select-all"),
                                                       (By.XPATH, "//button[contains(text(), 'Export')]"))
         )
-        self.log.debug('Starting download of: '.format(report_download_url))
+        self.log.info('Starting download of: '.format(report_download_url))
         elem_export.click()
 
         wait_for_any_file_in_folder(csv_download_folder_path, "xls")
-        self.log.debug('Download Finished.')
+        self.log.info('Download Finished.')
 
         df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
                                 sep='\t', **kwargs)
@@ -389,7 +389,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
                 return -1
 
             msg = email.message_from_bytes(data[0][1])
-            self.log.debug('Processing Message %s, Raw Date: %s' % (num, msg['Date']))
+            self.log.info('Processing Message %s, Raw Date: %s' % (num, msg['Date']))
             highest_export_id = 0
             for part in msg.walk():
                 # each part is a either non-multipart, or another multipart message
@@ -401,7 +401,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
                     match = re.search(r'(?<=id=)(\d*?)(?=\s)', part_str)
                     if match:
                         export_id = int(match.group(0))
-                        self.log.debug('export_id found: ' + str(export_id))
+                        self.log.info('export_id found: ' + str(export_id))
                         if export_id > highest_export_id:
                             highest_export_id = export_id
                     else:
