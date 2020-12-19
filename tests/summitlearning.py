@@ -3,6 +3,7 @@ import unittest
 import configparser
 import ducttape.data_sources.summitlearning as sl
 from ducttape.utils import DriverBuilder
+from selenium.common.exceptions import NoSuchElementException
 
 CONFIG = configparser.ConfigParser()
 CONFIG.read('./config/config.ini')
@@ -38,13 +39,13 @@ class TestSummitLearningDataSource(unittest.TestCase):
                     f.write(self.sl.driver.page_source)
         self.sl.driver.quit()
 
-    #@unittest.skip('running subset of tests')
+    # @unittest.skip('running subset of tests')
     def test_login(self):
         self.sl.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('SummitLearning', 'headless'))
         self.sl._login()
         self.sl.driver.close()
 
-    #@unittest.skip('running subset of tests')
+    # @unittest.skip('running subset of tests')
     def test_set_dl_academic_year(self):
         year = CONFIG['SummitLearning']['test_set_dl_academic_year__academic_year']
         self.sl.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('SummitLearning', 'headless'))
@@ -63,7 +64,22 @@ class TestSummitLearningDataSource(unittest.TestCase):
 
         self.assertTrue(self.sl.check_dl_academic_year(academic_year=year))
 
-    #@unittest.skip('running subset of tests')
+    # @unittest.skip('running subset of tests')
+    def test_set_dl_academic_year_invalid_year(self):
+        year = CONFIG['SummitLearning']['test_set_dl_academic_year_invalid_year__academic_year']
+        self.sl.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('SummitLearning', 'headless'))
+        self.sl._login()
+
+        dl_page_url = "{base_url}/sites/{site_id}/data_downloads/".format(
+            base_url=self.sl.base_url,
+            site_id=CONFIG['SummitLearning']['site_id']
+        )
+
+        self.sl.driver.get(dl_page_url)
+
+        self.assertRaises(NoSuchElementException, self.sl._set_dl_academic_year, year)
+
+    # @unittest.skip('running subset of tests')
     def test_download_site_data_download(self):
         heading = "Grades for Currently Enrolled Students (By Student/Course)"
 
