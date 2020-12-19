@@ -132,7 +132,8 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         self.log.debug('Changing academic year to: {}'.format(academic_year))
 
         # open the menu to select the academic year
-        elem = self.driver.find_element_by_id('academic-year-selector')
+        elem = WebDriverWait(self.driver, self.wait_time).until(
+            EC.element_to_be_clickable((By.ID, 'academic-year-selector')))
         elem.click()
 
         # select the appropriate year
@@ -186,7 +187,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             raise ValueError("Academic Year not correctly set")
 
         # start the CSV generation process
-        gen_button_xpath = "//h4[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
+        gen_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
 
         # try to find the "Generate CSV" button
         try:
@@ -205,7 +206,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         # wait for the report to be available and download it
         self.log.info('Starting download of report "{}" for site_id "{}"'.format(dl_heading, site_id))
 
-        dl_button_xpath = "//h4[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), 'Download')]"
+        dl_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), 'Download')]"
         try:
             elem = WebDriverWait(self.driver, report_generation_wait).until(
                 EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
@@ -218,8 +219,6 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
                 EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
             )
             elem.click()
-
-
 
         wait_for_any_file_in_folder(csv_download_folder_path, "csv")
         self.log.debug('Download Finished.')
