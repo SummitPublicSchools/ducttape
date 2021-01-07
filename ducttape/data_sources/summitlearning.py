@@ -187,18 +187,34 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             raise ValueError("Academic Year not correctly set")
 
         # start the CSV generation process
-        gen_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
+        download_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), '{button_text}')]"
 
-        # try to find the "Generate CSV" button
+        # try to find the "Download CSV" button - old version of the interface
+        old_interface = False
         try:
-            elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                             button_text='Generate CSV'))
+            elem = self.driver.find_element_by_xpath(download_button_xpath.format(dl_heading=dl_heading,
+                                                                             button_text='Download CSV'))
+            old_interface = True
+            self.log.info("'Download CSV' interface detected.")
             elem.click()
         # if it's not there, it may have changed to a "Refresh" button
         except NoSuchElementException as e:
-            elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                             button_text='Refresh'))
-            elem.click()
+            pass
+
+        # try to find the "Generate CSV" button - new version of the interface
+
+        if not old_interface:
+            gen_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
+            try:
+                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                 button_text='Generate CSV'))
+                self.log.info("'Generate CSV' interface detected.")
+                elem.click()
+            # if it's not there, it may have changed to a "Refresh" button
+            except NoSuchElementException as e:
+                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                 button_text='Refresh'))
+                elem.click()
 
         # wait for the refresh command to be issued
         time.sleep(1)
