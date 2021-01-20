@@ -75,7 +75,7 @@ these ed-tech platforms so that we could fully automate unit testing and have be
 
 ## Contributing
 
-If you'd like to contribute new functionality, please reach out to pyoho@summitps.org. If you have
+If you'd like to contribute new functionality, please reach out to patrick@innovateedunyc.org. If you have
 a bug fix or a code clean-up suggestion, feel free to fork us and submit a pull request.
 
 ## Licensing
