@@ -394,11 +394,11 @@ class Lexia(WebUIDataSource, LoggingMixin):
             for part in msg.walk():
                 # each part is a either non-multipart, or another multipart message
                 # that contains further parts... Message is organized like a tree
-                if part.get_content_type() == 'text/plain':
+                if part.get_content_type() == 'text/html':
                     # get the raw text
                     part_str = part.get_payload()
                     # extract the report id
-                    match = re.search(r'(?<=id=)(\d*?)(?=\s)', part_str)
+                    match = re.search(r'(?<=id=)\d*(?=\s)', part_str)
                     if match:
                         export_id = int(match.group(0))
                         self.log.info('export_id found: ' + str(export_id))
