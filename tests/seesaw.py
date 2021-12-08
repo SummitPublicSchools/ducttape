@@ -1,7 +1,8 @@
 import pandas as pd
+from datetime import datetime
 import unittest
 import configparser
-from ducttape.data_sources import seesaw as ss
+from ducttape.data_sources import seesaw
 import selenium
 from ducttape.utils import DriverBuilder
 from selenium.common.exceptions import (
@@ -9,10 +10,13 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     ElementNotVisibleException,
 )
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 CONFIG = configparser.ConfigParser()
 CONFIG.read('./config/config.ini')
-
+# /Users/anthonyrosario/opt/miniconda3/lib/python3.9/site-packages
 
 class TestSeesawDataSource(unittest.TestCase):
     """Test the Seesaw Object
@@ -29,7 +33,7 @@ class TestSeesawDataSource(unittest.TestCase):
             'headless': CONFIG.getboolean(config_section_name, 'headless'),
         }
 
-        cls.ss = ss.Seesaw(**args)
+        cls.ss = seesaw.Seesaw(**args)
         """
         # set up second class for testing the old 'Download CSV' interface
         config_section_name_downloadcsv = 'Seesaw_downloadcsv_interface'
@@ -40,11 +44,11 @@ class TestSeesawDataSource(unittest.TestCase):
             'headless': CONFIG.getboolean(config_section_name, 'headless'),
         }
 
-        cls.ss_dlcsv = ss.Seesaw(**args)
+        cls.ss_dlcsv = seesaw.Seesaw(**args)
         """
 
     def setUp(self):
-        self.assertTrue(isinstance(self.ss, ss.Seesaw))
+        self.assertTrue(isinstance(self.ss, seesaw.Seesaw))
         #self.assertTrue(isinstance(self.ss_dlcsv, ss.Seesaw))
         #self.addCleanup(self.sl.driver.quit)
 
@@ -67,7 +71,7 @@ class TestSeesawDataSource(unittest.TestCase):
                     f.write(sl_object.driver.page_source)
         sl_object.driver.quit()
 
-    @unittest.skip('running subset of tests')
+    # @unittest.skip('running subset of tests')
     def test_login(self):
         try:
             self.ss.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('Seesaw', 'headless'))
@@ -93,7 +97,39 @@ class TestSeesawDataSource(unittest.TestCase):
         except:
             self.fail("Failed to successfully navigate to Student Activity Report")
 
+    # @unittest.skip('running subset of tests')
+    def test_get_csv_link(self):
+        config_section_name = 'Seesaw'
+        self.ss.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('Seesaw', 'headless'))
+        self.ss._login()
+        self.ss._click_student_activity_report()
+        
+        link = self.ss._get_csv_link(
+            CONFIG[config_section_name]['email_host'], CONFIG[config_section_name]['email_port'], 
+            CONFIG[config_section_name]['email_login'], CONFIG[config_section_name]['email_password']
+        )
+
+        self.assertIsNotNone(link)
+        self.assertIn(".csv", link, "Link not a csv file")
+
+    # @unittest.skip('running subset of tests')
+    def test_fetch_date(self):
+        d = datetime(2021, 10, 10)
+        date_str = self.ss._fetch_date(d)
+        self.assertEquals(date_str, "Sunday, October 10, 2021")
+
+
+    # @unittest.skip('running subset of tests')
+    def test_generate_student_activity_report_and_fetch_csv(self):
+        config_section_name = 'Seesaw'
+        df = self.ss.generate_student_activity_report_and_fetch_csv(
+            CONFIG[config_section_name]['email_host'], CONFIG[config_section_name]['email_port'],
+            CONFIG[config_section_name]['email_login'], CONFIG[config_section_name]['email_password']
+        )
+        self.assertIsNotNone(df)
+
 
 if __name__ == '__main__':
     seesaw = unittest.defaultTestLoader.loadTestsFromTestCase(TestSeesawDataSource)
     unittest.TextTestRunner().run(seesaw)
+

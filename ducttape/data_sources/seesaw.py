@@ -18,8 +18,11 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver.common.by import By
 import pandas as pd
-import time
-import datetime
+import calendar
+from datetime import datetime
+import email
+import imaplib
+import logging
 import os
 import glob
 import re
@@ -47,36 +50,29 @@ from ducttape.exceptions import (
     InvalidLoginCredentials,
 )
 
-SCHOOLMINT_DEFAULT_EXPORT_ENCODING = 'utf-8-sig'
-WALKME_AND_SUPPORT_TIMEOUT = 5
-NUMBER_OF_RETRIES = 3
+SEESAW_DEFAULT_EXPORT_ENCODING = 'utf-8'
+NUMBER_OF_RETRIES = 5
+DEFAULT_REPORT_FIELDS = ["Classes", "Teachers", "Students", "Families", "Analytics"]
 
-GENERATE_REPORT_BUTTON_XPATH = (
-    "//tr[td[text() = '{report_name}' or text() = ' {report_name} ']]//button[contains(@class, 'export-data')]"
-)
-
+# bZ9<Rd66 - outlook password for reports@killinglyschools.org
+# https://app.seesaw.me/#/district/district.da305f84-f939-4b10-ab31-2eb55bc1b8f3  -- homepage for killingly seesaw
 
 class Seesaw(WebUIDataSource, LoggingMixin):
     """ Class for interacting with SchoolMint
     """
 
-    def __init__(self, username, password, wait_time, hostname, temp_folder_path=None, headless=False):
-        # try:
-        #     self.logger = logging.getLogger('sps-automation.data_sources.schoolmint.Schoolmint')
-        # except AttributeError:
-        #     self.log
+    def __init__(self, username, password, wait_time, hostname, temp_folder_path=None, headless=False, school_district=None):
         super().__init__(username, password, wait_time, hostname, temp_folder_path, headless)
         self.uri_scheme = 'https://'
         self.base_url = self.uri_scheme + self.hostname
+        self.school_district = school_district
 
     def _login(self):
         """ Logs into the provided SchoolMint instance.
         """
-        # 2019-01-16 SchoolMint seems to be having some issues with loading the login screen recently,
-        # so we'll add a retry here
-        count = 0
-        while count < NUMBER_OF_RETRIES:
-            self.log.debug('Logging into SchoolMint at, try {}: {}'.format(count, self.base_url))
+        retries = 0
+        while retries < NUMBER_OF_RETRIES:
+            self.log.debug('Logging into Seesaw, at try {}: {}'.format(retries, self.base_url))
             self.driver.get(self.base_url + "/#/login?role=org_admin")
             # wait until login form available
             try:
@@ -89,7 +85,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
                 elem.send_keys(Keys.RETURN)
                 break
             except ElementNotVisibleException:
-                count += 1
+                retries += 1
 
         # check that login succeeded by looking for the 'Student Activity Report' button
         try:
@@ -99,469 +95,167 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             self.driver.close()
             raise InvalidLoginCredentials
 
+    def download_url_report(self, report_url, temp_folder_name):
+        return report_url
 
     def _click_student_activity_report(self):
+        """
+        Navigates the Seesaw User Interface and clicks on the "Show Student Activity Report For District"
+        button to initiate a CSV export. The csv file is sent to the district's email.
+        """
         try:
             self.log.info("Getting student activity report.")
             elem = self.driver.find_element_by_css_selector("[ng-if='showStudentActivityReportForDistrict']")
-            print(elem.text)
             elem.click()
 
             popup_elem = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid=":student-activity-report-send-button"]')))
-            print(popup_elem.text)
+                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid=":student-activity-report-send-button"]'))
+            )
             popup_elem.click()
+
+            ok_elem = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'MuiButton-label'))
+            )
+            ok_elem.click()
         except TimeoutException:
             self.driver.close()
             raise DuctTapeException
 
-
-    def __remove_walk_me_and_support(self):
-        """Removes two third party overlays that can block buttons that selenium needs to click."""
-        self.log.info('Removing "Walk-Me" and "Support" overlays.')
-        walkme = True
-        # wait for walk-me to load
-        try:
-            WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'walkme-player')))
-        except TimeoutException:
-            self.log.info('Probably no Walk-Me found')
-            walkme = False
-
-        if walkme:
-            self.log.debug('Removing "Walk Me" overlay.')
-            try:
-                for id in ['walkme-player', 'walkme-overlay-all']:
-                    elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                        EC.presence_of_element_located((By.ID, id))
-                    )
-                    self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-                self.log.debug('Success')
-                self.log.debug('Removing "Walk Me" bouncing overlay.')
-                try:
-                    elem = self.driver.find_element_by_id('walkme-attengrab')
-                    self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-                    self.log.debug('Success')
-                except NoSuchElementException:
-                    self.log.debug('No "Walk Me" bouncing overlay found.')
-            except TimeoutException:
-                self.log.debug('No "Walk Me" overlay found.')
-
-            # remove "Homeroom" announcement
-            self.log.debug('Removing "Homeroom" and other wm-shoutout modals.')
-            try:
-                elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                    # it turns out that the id can have numbers at the end (e.g. wm-shoutout-141590), so we need XPATH
-                    EC.presence_of_element_located((By.XPATH, "//*[starts-with(@id, 'wm-shoutout')]"))
-                )
-                self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-                self.log.debug('Success')
-            except TimeoutException:
-                self.log.debug('No "Homeroom" or other wm-shoutout modals found.')
-
-        # remove 'Support' button
-        self.log.debug('Trying to remove "Support" overlay.')
-        try:
-            elem = WebDriverWait(self.driver, WALKME_AND_SUPPORT_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, 'launcher'))
-            )
-            self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-            self.log.debug('Success')
-        except TimeoutException:
-            self.log.debug('No "Support" overlay found.')
-            pass
-
-    def _set_year(self, school_year, driver=None):
-        """Sets the year for the SchoolMint interface.
-
-        Args:
-            school_year (string): The school year that should be selected. Use the format shown in the
-                SchoolMint interface. Example: '2016-2017'
-
-        :return: True if function succeeds
+    def _get_csv_link_from_email(self, email_host, port_number, email_login, email_password):
         """
-        self.log.debug('Changing school year to: {}'.format(school_year))
-        if not driver:
-            self.driver = configure_selenium_chrome()
-            self._login()
-
-        # open the year selector menu
-        elem = self.driver.find_element_by_xpath("//a[contains(@class,'dropdown-toggle enrollment')]")
-        elem.click()
-
-        # select the appropriate year
-        try:
-            year_xpath = "//*[@id='enrollment-selector']//a[contains(text(),'{}')]".format(school_year)
-            elem = self.driver.find_element_by_xpath(year_xpath)
-            elem.click()
-        except NoSuchElementException as e:
-            self.driver.save_screenshot('cannot_find_year.png')
-            message = (
-                ' Check that the school_year variable is valid. '
-                'Passed value for school_year: {}'
-            ).format(school_year)
-
-            raise_with_traceback(type(e)(str(e) + message))
-
-        # wait for the page to be ready again
-        self.driver.get(self.base_url)
-        WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.ID, 'student-lookup'))
-        )
-
-        if not driver:
-            self.driver.close()
-
-        return True
-
-    def check_school_year(self, school_year):
-        """Checks that the school year is set as expected in the UI."""
-        elem = self.driver.find_element_by_xpath(
-            "//a[contains(@class,'dropdown-toggle enrollment')]/span[contains(@class,'current')]")
-        if school_year in elem.text:
-            return True
-        else:
-            return False
-
-    def download_url_report(self, report_url, school_year, temp_folder_name=None, pandas_read_csv_kwargs={}):
-        """ Downloads a SchoolMint data-stream-table report.
-
-        Args:
-            report_url (string): Information pertaining to the path and query
-                string for the report whose access is desired. Any filtering
-                that can be done with a stateful URL should be included.
-            school_year (string): The SchoolMint school year to download from (e.g. '2018-2019')
-            temp_folder_name (string): The name for a sub-directory in which the files from the
-                browser will be temporarily stored. If this directory does not exist, it will be
-                created. NOTE: This sub-directory will be
-            pandas_read_csv_kwargs: additional arguments to pass to Pandas read_csv
-
-        Returns: A Pandas DataFrame of the report contents.
+        Navigates the given email account to find the Seesaw email with a link to the report csv and
+        returns that link.
+        @param email_host: host site of email
+        @param port_number: port number for connection
+        @param email_login: username credential for login
+        @param email_password: password credential for login
+        @return: [str] the link to the csv file
         """
-        if temp_folder_name:
-            csv_download_folder_path = self.temp_folder_path + '/' + temp_folder_name
-        else:
-            csv_download_folder_path = mkdtemp(dir=self.temp_folder_path)
+        # Email with csv link can take up to an hour to send. Retrying for 1 hour
+        retries = 0
+        while retries <= 15:
+            imap_connection = imaplib.IMAP4_SSL(email_host, port_number)
+            imap_connection.login(email_login, email_password)
+            imap_connection.select()
 
-        # set up the driver for execution
-        self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
-        self._login()
-        self._set_year(school_year, self.driver)
+            date = self._fetch_date()
+            subject = f"Student Activity Report for {self.school_district} on {date}"
+            logging.info(f"Searching for subject: {subject}")
 
-        # get the report url
-        self.driver.get(interpret_report_url(self.base_url, report_url))
-        self.__remove_walk_me_and_support()
-
-        # wait until we have rows in the stream data table before starting to
-        # look for results
-        elem = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, "//*[@id='stream-table']/tbody/tr[1]/td[1]"))
-        )
-
-        if not self.check_school_year(school_year):
-            raise ReportNotFound("Wrong school detected prior to clicking generate.")
-
-        self.log.debug('Waiting for report-data-summary to load')
-        # wait until the stream table is fully loaded before downloading
-        prev_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
-        # print(prev_data_summary_elem)
-        time.sleep(1)
-        # we use the following count as a proxy for time elapsed, so we can
-        # use the class's wait_time as the number of retries
-        count = 0
-        while True:
-            # check id=report-data-summary
-            report_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
-
-            # if it matches, wait a little longer and double deck that it hasn't changed
-            if prev_data_summary_elem == report_data_summary_elem:
-                time.sleep(3)
-                count += 3
-                report_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
-                if prev_data_summary_elem == report_data_summary_elem:
-                    break
-            prev_data_summary_elem = report_data_summary_elem
-            time.sleep(1)
-
-            count += 1
-            if count >= self.wait_time:
-                raise TimeoutError('SchoolMint Report Data never did not fully load within %d' % self.wait_time)
-
-        # click the button to download the report
-        self.log.debug('Starting download...')
-        elem = self.driver.find_element_by_class_name("export-table")
-        elem.click()
-
-        # wait until file has downloaded to close the browser. We can do this
-        # because we delete the file before we return it, so the temp dir should
-        # always be empty when this command is run
-        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
-
-        self.log.debug('Download finished.')
-        report_df = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING, **pandas_read_csv_kwargs)
-
-        # TODO: move this out of this function. It should happen as cleanup once
-        # the whole DAG has completed
-        #delete_folder_contents(csv_download_folder_path)
-        shutil.rmtree(csv_download_folder_path)
-
-        # close the driver for this task
-        self.driver.close()
-
-        # if the dataframe is empty (the report had no data), raise an error
-        if report_df.shape[0] == 0:
-            #delete_folder_contents(csv_download_folder_path)
-            shutil.rmtree(csv_download_folder_path)
-            raise ValueError('No data in report for user {} at url: {}'.format(
-                self.username, interpret_report_url(self.base_url, report_url)))
-
-        return report_df
-
-    def __get_number_of_pages(self):
-        """Get the number of pages in a SchoolMint pagination."""
-        total_num_pages_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page][last()]'
-
-        elem = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, total_num_pages_xpath)))
-
-        num_pages = int(elem.get_attribute("data-page")) + 1
-
-        return num_pages
-
-    def __navigate_to_custom_report(self, report_name, school_year,
-                                    download_folder_path=None):
-        """Navigate to the page of the custom report tool that has the custom report on it"""
-        if not download_folder_path:
-            download_folder_path = self.temp_folder_path
-        self.driver = DriverBuilder().get_driver(
-            download_location=download_folder_path,
-            headless=self.headless
-        )
-        self._login()
-        self._set_year(school_year, self.driver)
-
-        # get the custom reports page
-        custom_reports_url = 'report/customReports'
-        self.driver.get(interpret_report_url(self.base_url, custom_reports_url))
-        self.__remove_walk_me_and_support()
-
-        # wait for the page to load and get the maximum number of pages
-        total_num_pages_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page][last()]'
-
-        elem = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, total_num_pages_xpath)))
-
-        num_pages = int(elem.get_attribute("data-page")) + 1
-
-        current_page = 0
-        while current_page < num_pages:
-            report_name_xpath = "//tr[td//text()[contains(., '{}')]]".format(
-                report_name
-            )
-
-            try:
-                elem = self.driver.find_element_by_xpath(report_name_xpath)
-                return current_page
-            except NoSuchElementException:
-                current_page += 1
-                if current_page < num_pages:
-                    next_page_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page={}]/a'.format(
-                        current_page
-                    )
-                    self.driver.find_element_by_xpath(next_page_xpath).click()
-
-                    # scroll back to the top of the page, prevents selenium clicking errors
-                    self.driver.execute_script("window.scrollTo(0, 0);")
-
-        raise ReportNotFound
-
-    def generate_custom_report(self, report_name, school_year):
-        """
-        Clicks the generate button on a SchoolMint custom report.
-        :param report_name: The name of the report exactly as it is shown in the SchoolMint UI
-        :param school_year: The year in SchoolMint. Should be formatted as shown in the UI
-            (e.g. '2018-2019')
-        :return: True if the button was clicked. False if the button was not clicked because
-            the report is generating.
-        """
-        self.__navigate_to_custom_report(report_name, school_year)
-
-        if not self.check_school_year(school_year):
-            raise ReportNotFound("Wrong school detected prior to clicking generate.")
-
-        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
-        try:
-            generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
-        except NoSuchElementException:
-            raise ReportNotFound
-
-        if generate_report_button.text == 'Generate Report':
-            generate_report_button.click()
-            self.driver.close()
-
-            return True
-        elif generate_report_button.text == 'Report in Progress':
-            self.driver.close()
-
-            return False
-        else:
-            raise ValueError("Unknown 'Generate Report' button text found")
-
-    def is_custom_report_generating(self, report_name, school_year):
-        """Checks if a SchoolMint Custom Report is generating or not"""
-        self.__navigate_to_custom_report(report_name, school_year)
-
-        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
-        try:
-            generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
-        except NoSuchElementException:
-            raise ReportNotFound
-
-        if generate_report_button.text == 'Report in Progress':
-            return True
-        elif generate_report_button.text == 'Generate Report':
-            return False
-        else:
-            raise ValueError("Unknown 'Generate Report' button text found")
-
-    def get_last_custom_report_generation_datetime(self, report_name, school_year):
-        """Get's a report's generation timestamp in raw text"""
-        self.__navigate_to_custom_report(report_name, school_year)
-
-        try:
-            # old custom reports interface
-            report_generated_on_xpath = (
-                "//tr[td[./text()='{}']]/td[4]"
-            ).format(report_name)
-            report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
-        except TimeoutException:
-            try:
-                # new custom reports interface
-                report_generated_on_xpath = (
-                    "//tr[td[text()=' {} ']]/td[contains(@class,'last_generated_date-td')]"
-                ).format(report_name)
-                report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
-                    EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
-            except TimeoutException:
-                raise ReportNotFound
-
-        return report_generated_on_text
-
-    def _download_custom_report(self, report_name, school_year, download_folder_path, download_if_generating=False):
-        """Protected function for clicking the download button on a report on the Custom Reports page"""
-        if not download_folder_path:
-            download_folder_path = self.temp_folder_path
-        self.__navigate_to_custom_report(report_name, school_year, download_folder_path)
-
-        generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
-        generate_report_button_text = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, generate_report_button_xpath))).text
-
-        download_button_xpath = (
-            "//tr[td[text() = '{report_name}' or text() = ' {report_name} ']]//a[contains(text(), 'Download')]"
-        ).format(report_name=report_name)
-
-        elem = WebDriverWait(self.driver, self.wait_time).until(
-            EC.presence_of_element_located((By.XPATH, download_button_xpath)))
-
-        if generate_report_button_text == 'Generate Report':
-            elem.click()
-        elif generate_report_button_text == 'Report in Progress' and download_if_generating:
-            elem.click()
-        else:
-            raise ReportNotReady
-
-        return self.driver
-
-    def download_csv_custom_report(self, report_name, school_year, download_if_generating=False,
-                                   pandas_read_csv_kwargs={}):
-        """Download a SchoolMint Custom Report that downloads as a single CSV file"""
-        temp_folder_name = report_name.replace(" ", "_").lower()
-        csv_download_folder_path = self.temp_folder_path + '/' + temp_folder_name
-        driver = self._download_custom_report(report_name, school_year, csv_download_folder_path,
-                                              download_if_generating)
-
-        # wait until file has downloaded to close the browser. We can do this
-        # because we delete the file before we return it, so the temp dir should
-        # always be empty when this command is run
-        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
-
-        report_df = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING, **pandas_read_csv_kwargs)
-
-        # delete any files in the mealtime temp folder; we don't need them now
-        # TODO: move this out of this function. It should happen as cleanup once
-        # the whole DAG has completed
-        delete_folder_contents(csv_download_folder_path)
-
-        # close the driver for this task
-        driver.close()
-
-        # if the dataframe is empty (the report had no data), raise an error
-        if report_df.shape[0] == 0:
-            raise NoDataError('No data for user {} in Custom Report: {}'.format(self.username, report_name))
-
-        return report_df
-
-    def download_zip_custom_report(self, report_name, school_year, download_folder_path=None,
-                                   download_if_generating=False, unzip=True,
-                                   pandas_read_csv_kwargs={}):
-        """
-        Downloads a SchoolMint Custom Report that downloads as a zipped set of CSVs
-        :param report_name: The name of the report exactly as it is shown in the SchoolMint UI
-        :param school_year: The year in SchoolMint. Should be formatted as shown in the UI
-            (e.g. '2018-2019')
-        :param download_folder_path: The path to where you want to store the zip file.
-        :param download_if_generating: Whether or not to download a custom report if the
-            report is currently generating.
-        :param unzip: Boolean. If True, not only downloads the file, but also unzips it and
-            returns each csv in a Pandas Dataframe in a dictionary.
-        :param pandas_read_csv_kwargs: Additional keyward arguments to pass to Panda's read_csv function.
-        :return: None or a dictionary of Pandas DataFrames representing each of the CSVs in
-            the zipped file.
-        """
-        # create a folder for this specific run
-        run_time = datetime.datetime.utcnow()
-        if not download_folder_path:
-            download_folder_path = self.temp_folder_path
-        download_dir_final = "{}/{}-{}-{}".format(download_folder_path, report_name,
-                                                   run_time.strftime('%Y%m%d'), run_time.strftime('%H%M%S'))
-        driver = self._download_custom_report(report_name, school_year, download_dir_final, download_if_generating)
-
-        # wait until file has downloaded to close the browser. We can do this
-        # because we delete the file before we return it, so the temp dir should
-        # always be empty when this command is run
-        # TODO add a try/except block here
-        wait_for_any_file_in_folder(download_dir_final, "zip")
-
-        driver.close()
-
-        if unzip:
-            # unzip the files
-            file_path = max(glob.iglob(download_dir_final + '/*.zip'), key=os.path.getctime)
-            ZipfileLongPaths(file_path).extractall(download_dir_final)
-
-            dfs = dict()
-            # iterate through the unzipped files and load them into dataframes
-            for csv_filepath in glob.iglob(download_dir_final + '/*.csv'):
-                csv_filename = os.path.basename(csv_filepath)
-                #print(csv_filename)
-                # find the files that start with a number, these are the custom forms files
-                if re.match("^(\d+)", csv_filename):
-                    num_beg = re.match("^(\d+)", csv_filename).group(0)
-                    words = re.findall("[A-Za-z]+", csv_filename)
-                    dict_key = csv_filename # "{}_{}".format(num_beg, '_'.join(words[0:3])).lower()
-                    dfs[dict_key] = pd.read_csv(csv_filepath, encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING,
-                                                skiprows=[0, 2], **pandas_read_csv_kwargs)
-                # otherwise it is the info file that comes along with the zip export (application-data-export, etc.)
+            status, emails = imap_connection.search(None, f'(SUBJECT "{subject}")')
+            if status != 'OK':
+                if retries == 10:
+                    raise ConnectionError
                 else:
-                    words = re.findall("[A-Za-z]+", csv_filename)
-                    dict_key = csv_filename # "{}".format('_'.join(words[0:3])).lower()
+                    print("Sleeping for 4 minutes...")
+                    retries += 1
+                    time.sleep(240)
+            else:
+                break
 
-                    dfs[dict_key] = pd.read_csv(csv_filepath, encoding=SCHOOLMINT_DEFAULT_EXPORT_ENCODING,
-                                                **pandas_read_csv_kwargs)
+        # Reset retry count for fetching link from emails
+        retries = 0
+        while retries <= NUMBER_OF_RETRIES:
+            try:
+                nums = emails[0].split()
+                # Ensure we get the most recent email
+                message_string = self._get_most_recent_email(imap_connection, nums)
+                r = re.search("https:\/\/assets.seesaw.me.*.csv", message_string)
 
-            return dfs
+                link = r.group(0)
+                return link
+            except IndexError:
+                if retries == NUMBER_OF_RETRIES:
+                    raise NoDataError
+                else:
+                    retries += 1
+
+    def _fetch_school_link_elements(self, report_list=DEFAULT_REPORT_FIELDS, home_suffix=None):
+        if not home_suffix:
+            home_url = self.driver.current_url
+        else:
+            home_url = self.base_url + home_suffix
+            self.driver.get(home_url)
+
+        elements = self.driver.find_elements_by_css_selector('[ng-repeat="school in districtInfo.schools.objects"]')
+        print(len(elements))
+
+        for i in range(len(elements)):
+            e.click()
+            for r in report_list:
+                #tag_link = self.driver.find_element_by_link_text(r)
+                tag_link = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.presence_of_element_located((By.LINK_TEXT, r))
+                )
+                tag_link.click()
+                if r == "Analytics":
+                    print(r)
+            self.driver.get(home_url)
+
+    def _navigate_tabs_and_download_csvs(self):
+        pass
+
+    def _fetch_date(self, date=None):
+        """
+        Helper function for returning the given date in "Day, Month, Date, Year" format
+        @param date: The date to convert. If none is given, use today's date
+        @return: [str] The date, in the format: "<Day-of-Week>, <Month> <Day>, <Year>"
+        """
+        if not date:
+            date = datetime.today()
+
+        day_of_week = calendar.day_name[date.weekday()]
+        date_str = date.strftime("%B %d, %Y")
+        return f"{day_of_week}, {date_str}"
+
+
+    def _get_most_recent_email(self, imap_connection, numbers):
+        """
+        Helper for returning the most recent email in the list of emails given
+        @param imap_connection: an IMAP4_SSL object
+        @param numbers: a list of numbers that imap uses to fetch email messages
+        @return: The most recent email message, as a raw string
+        """
+        timestamp = None
+        most_recent_email = None
+        for n in numbers:
+            mail_object = imap_connection.fetch(n, '(RFC822)')
+            message = email.message_from_bytes(mail_object[1][0][1])
+            message_string = message.as_string()
+            # Isolate timestamp that email was sent
+            r = re.search("\n \d\d:\d\d:\d\d \+", message_string)
+            if not timestamp or r.group(0) > timestamp:
+                timestamp = r.group(0)
+                most_recent_email = message_string
+                logging.info(r.group(0) + " is the most recent as of now")
+        return most_recent_email
+
+
+    def _download_csv_from_link(self, link):
+        """
+        Downloads a csv from a link into a dataframe object
+        @param link: The link to download
+        @return: the dataframe object
+        """
+        df = pd.read_csv(link, encoding=SEESAW_DEFAULT_EXPORT_ENCODING, skiprow=1)
+        return df
+
+
+    def generate_student_activity_report_and_fetch_csv(self, email_host, port_number, email_login, email_password):
+        """
+        Log into the Seesaw UI and start a Student Activity csv export, then log into the district's email,
+        get the URL of the csv file, and return a pandas DataFrame created from the CSV file's data.
+        @param email_host: host site of email
+        @param port_number: port number for connection
+        @param email_login: username credential for login
+        @param email_password: password credential for login
+        @return: [DF] a pandas DataFrame object
+        """
+        # Log into Seesaw and start csv export
+        self._login()
+        self._click_student_activity_report()
+
+        # Get the link of the CSV from the Seesaw email, then download it into a DataFrame
+        link = self._get_csv_link_from_email(email_host, port_number, email_login, email_password)
+        df = self._download_csv_from_link(link)
+        return df
