@@ -13,7 +13,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException,
-    NoSuchElementException,
     ElementNotVisibleException,
 )
 from selenium.webdriver.common.by import By
@@ -24,29 +23,16 @@ import email
 import imaplib
 import logging
 import os
-import glob
 import re
-import shutil
 import time
 from tempfile import mkdtemp
 
 # local import
 from ducttape.webui_datasource import WebUIDataSource
-from ducttape.utils import (
-    configure_selenium_chrome,
-    interpret_report_url,
-    wait_for_any_file_in_folder,
-    get_most_recent_file_in_dir,
-    delete_folder_contents,
-    DriverBuilder,
-    LoggingMixin,
-    ZipfileLongPaths,
-)
+from ducttape.utils import LoggingMixin
 from ducttape.exceptions import (
     DuctTapeException,
-    ReportNotReady,
     NoDataError,
-    ReportNotFound,
     InvalidLoginCredentials,
 )
 

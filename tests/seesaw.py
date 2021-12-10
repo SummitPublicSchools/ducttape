@@ -1,13 +1,10 @@
-import pandas as pd
 from datetime import datetime
 import unittest
 import configparser
 from ducttape.data_sources import seesaw
-import selenium
 from ducttape.utils import DriverBuilder, configure_selenium_chrome
 from selenium.common.exceptions import (
     TimeoutException,
-    NoSuchElementException,
     ElementNotVisibleException,
 )
 from selenium.webdriver.common.by import By
@@ -16,7 +13,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 CONFIG = configparser.ConfigParser()
 CONFIG.read('./config/config.ini')
-# /Users/anthonyrosario/opt/miniconda3/lib/python3.9/site-packages
 
 class TestSeesawDataSource(unittest.TestCase):
     """Test the Seesaw Object
