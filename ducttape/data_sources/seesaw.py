@@ -19,7 +19,7 @@ from selenium.common.exceptions import (
 from selenium.webdriver.common.by import By
 import pandas as pd
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 import email
 import imaplib
 import logging
@@ -54,8 +54,6 @@ SEESAW_DEFAULT_EXPORT_ENCODING = 'utf-8'
 NUMBER_OF_RETRIES = 5
 DEFAULT_REPORT_FIELDS = ["Classes", "Teachers", "Students", "Families", "Analytics"]
 
-# bZ9<Rd66 - outlook password for reports@killinglyschools.org
-# https://app.seesaw.me/#/district/district.da305f84-f939-4b10-ab31-2eb55bc1b8f3  -- homepage for killingly seesaw
 
 class Seesaw(WebUIDataSource, LoggingMixin):
     """ Class for interacting with SchoolMint
@@ -95,6 +93,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             self.driver.close()
             raise InvalidLoginCredentials
 
+    # Temporary definition for abstract function
     def download_url_report(self, report_url, temp_folder_name):
         return report_url
 
@@ -104,8 +103,10 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         button to initiate a CSV export. The csv file is sent to the district's email.
         """
         try:
-            self.log.info("Getting student activity report.")
-            elem = self.driver.find_element_by_css_selector("[ng-if='showStudentActivityReportForDistrict']")
+            logging.info("Getting student activity report.")
+            elem = WebDriverWait(self.driver, self.wait_time).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "[ng-if='showStudentActivityReportForDistrict']"))
+            )
             elem.click()
 
             popup_elem = WebDriverWait(self.driver, self.wait_time).until(
@@ -143,11 +144,11 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             logging.info(f"Searching for subject: {subject}")
 
             status, emails = imap_connection.search(None, f'(SUBJECT "{subject}")')
-            if status != 'OK':
-                if retries == 10:
+            if status != 'OK' or len(emails[0].split()) == 0:
+                if retries == 15:
                     raise ConnectionError
                 else:
-                    print("Sleeping for 4 minutes...")
+                    logging.info("Sleeping for 4 minutes...")
                     retries += 1
                     time.sleep(240)
             else:
@@ -169,31 +170,6 @@ class Seesaw(WebUIDataSource, LoggingMixin):
                     raise NoDataError
                 else:
                     retries += 1
-
-    def _fetch_school_link_elements(self, report_list=DEFAULT_REPORT_FIELDS, home_suffix=None):
-        if not home_suffix:
-            home_url = self.driver.current_url
-        else:
-            home_url = self.base_url + home_suffix
-            self.driver.get(home_url)
-
-        elements = self.driver.find_elements_by_css_selector('[ng-repeat="school in districtInfo.schools.objects"]')
-        print(len(elements))
-
-        for i in range(len(elements)):
-            e.click()
-            for r in report_list:
-                #tag_link = self.driver.find_element_by_link_text(r)
-                tag_link = WebDriverWait(self.driver, self.wait_time).until(
-                    EC.presence_of_element_located((By.LINK_TEXT, r))
-                )
-                tag_link.click()
-                if r == "Analytics":
-                    print(r)
-            self.driver.get(home_url)
-
-    def _navigate_tabs_and_download_csvs(self):
-        pass
 
     def _fetch_date(self, date=None):
         """
@@ -237,7 +213,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         @param link: The link to download
         @return: the dataframe object
         """
-        df = pd.read_csv(link, encoding=SEESAW_DEFAULT_EXPORT_ENCODING, skiprow=1)
+        df = pd.read_csv(link, encoding=SEESAW_DEFAULT_EXPORT_ENCODING, skiprows=1)
         return df
 
 
@@ -258,4 +234,101 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         # Get the link of the CSV from the Seesaw email, then download it into a DataFrame
         link = self._get_csv_link_from_email(email_host, port_number, email_login, email_password)
         df = self._download_csv_from_link(link)
+        return df
+
+    def fetch_school_link_tab_file(self, school_name, report_tab, home_suffix=None, start_date=None, end_date=None):
+        """
+        Given a school name and a report to download, navigate to that school's section and download the requested
+        report, then return a pandas DataFrame with the report's information
+        @param school_name: Name of school as it is displayed on the Seesaw home page
+        @param report_tab: Name of tab to navigate to and download from
+        @param home_suffix: URL suffix to start and end this navigation at. Default is usually the home page
+        after login
+        @param start_date: A start date for Analytics stats - only used if report_tab == Analytics
+        @param end_date: An end date for Analytics stats - only used if report_tab == Analytics
+        @return: a pandas DataFrame
+        """
+        if not home_suffix:
+            home_url = self.driver.current_url
+        else:
+            home_url = self.base_url + home_suffix
+            self.driver.get(home_url)
+
+        school_element = self.driver.find_element_by_link_text(school_name)
+        school_element.click()
+
+        tag_link = WebDriverWait(self.driver, self.wait_time).until(
+            EC.presence_of_element_located((By.LINK_TEXT, report_tab))
+        )
+        tag_link.click()
+        # The Analytics tab has a different interface than the other tabs
+        if report_tab == "Analytics":
+            # Update start date and end date boxes if necessary
+            if start_date is not None:
+                datetime_start = datetime.strptime(start_date, '%Y%m%d')
+                if datetime_start.date() >= datetime.today().date() - timedelta(days=1):
+                    raise Exception("Start date must be on or before yesterday's date.")
+                start_date_str = datetime_start.strftime("%m/%d/%Y")
+                start_box = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.element_to_be_clickable((By.ID, 'start-datepicker'))
+                )
+                start_box.clear()
+                start_box.send_keys(start_date_str)
+                start_box.send_keys(Keys.RETURN)
+
+            if end_date is not None:
+                datetime_end = datetime.strptime(end_date, '%Y%m%d')
+                if datetime_end.date() < datetime.now().date() - timedelta(days=1):
+                    raise Exception("End date must be on or before yesterday's date.")
+                elif start_date is not None and datetime_end.date() < datetime.strptime(start_date, '%Y%m%d').date():
+                    raise Exception("End date must be the same or a later day than start date.")
+                end_date_str = datetime_end.strftime("%m/%d/%Y")
+                end_box = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.element_to_be_clickable((By.ID, 'end-datepicker'))
+                )
+                end_box.clear()
+                end_box.send_keys(end_date_str)
+                end_box.send_keys(Keys.RETURN)
+
+            # Wait a few seconds for stats to update before downloading file
+            logging.info("Waiting 5 seconds for stats to update before downloading Analytics file.")
+            time.sleep(5)
+            download_link = WebDriverWait(self.driver, self.wait_time).until(
+                EC.element_to_be_clickable((By.LINK_TEXT, 'Download Stats'))
+            )
+            download_link.click()
+        else:
+            dropdown_element = WebDriverWait(self.driver, self.wait_time).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '[alt="Dropdown icon"]'))
+            )
+            dropdown_element.click()
+            # List of elements in dropdown. Sometimes includes more than one option, so we search for Download CSV
+            elements = self.driver.find_elements_by_css_selector('[ng-repeat="menuItem in dashboardGearMenuItems"]')
+            for e in elements:
+                if "Download CSV" in e.text:
+                    e.click()
+                    break
+
+        retries = 0
+        df = None
+        filename = None
+        while retries <= NUMBER_OF_RETRIES and df is None:
+            try:
+                for file in os.listdir(self.temp_folder_path):
+                    if report_tab == "Analytics" and "Stats" in file:
+                        filename = file
+                        logging.info(f"Download file at: {self.temp_folder_path}/{file}")
+                    elif report_tab.lower() in file:
+                        filename = file
+                        logging.info(f"Download file at: {self.temp_folder_path}/{file}")
+                df = pd.read_csv(f"{self.temp_folder_path}/{filename}")
+            except FileNotFoundError:
+                if retries == NUMBER_OF_RETRIES:
+                    raise FileNotFoundError("File not downloaded")
+                time.sleep(10)
+                retries += 1
+        # Go back to original page so we can navigate to another school & tab if needed
+        self.driver.get(home_url)
+        # Delete file so it does not interfere with future downloaded files in the directory
+        os.remove(f"{self.temp_folder_path}/{filename}")
         return df

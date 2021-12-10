@@ -4,7 +4,7 @@ import unittest
 import configparser
 from ducttape.data_sources import seesaw
 import selenium
-from ducttape.utils import DriverBuilder
+from ducttape.utils import DriverBuilder, configure_selenium_chrome
 from selenium.common.exceptions import (
     TimeoutException,
     NoSuchElementException,
@@ -34,18 +34,6 @@ class TestSeesawDataSource(unittest.TestCase):
         }
 
         cls.ss = seesaw.Seesaw(**args)
-        """
-        # set up second class for testing the old 'Download CSV' interface
-        config_section_name_downloadcsv = 'Seesaw_downloadcsv_interface'
-        args = {
-            'username': CONFIG[config_section_name_downloadcsv]['username'],
-            'password': CONFIG[config_section_name_downloadcsv]['password'],
-            'wait_time': int(CONFIG[config_section_name]['wait_time']),
-            'headless': CONFIG.getboolean(config_section_name, 'headless'),
-        }
-
-        cls.ss_dlcsv = seesaw.Seesaw(**args)
-        """
 
     def setUp(self):
         self.assertTrue(isinstance(self.ss, seesaw.Seesaw))
@@ -126,6 +114,14 @@ class TestSeesawDataSource(unittest.TestCase):
             CONFIG[config_section_name]['email_host'], CONFIG[config_section_name]['email_port'],
             CONFIG[config_section_name]['email_login'], CONFIG[config_section_name]['email_password']
         )
+        self.assertIsNotNone(df)
+
+    # @unittest.skip('running subset of tests')
+    def test_fetch_school_link_tab_file(self, school_name, report_name, **kwargs):
+        config_section_name = 'Seesaw'
+        self.ss.driver = configure_selenium_chrome(download_folder_path=self.ss.temp_folder_path)
+        self.ss._login()
+        df = self.ss.fetch_school_link_tab_file(school_name, report_name, **kwargs)
         self.assertIsNotNone(df)
 
 
