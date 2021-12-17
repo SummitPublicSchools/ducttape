@@ -193,13 +193,13 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         return most_recent_email
 
 
-    def _download_csv_from_link(self, link):
+    def _download_csv_from_link(self, link, skiprows=0):
         """
         Downloads a csv from a link into a dataframe object
         @param link: The link to download
         @return: the dataframe object
         """
-        df = pd.read_csv(link, encoding=SEESAW_DEFAULT_EXPORT_ENCODING, skiprows=1)
+        df = pd.read_csv(link, encoding=SEESAW_DEFAULT_EXPORT_ENCODING, skiprows=skiprows)
         return df
 
 
@@ -219,7 +219,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
 
         # Get the link of the CSV from the Seesaw email, then download it into a DataFrame
         link = self._get_csv_link_from_email(email_host, port_number, email_login, email_password)
-        df = self._download_csv_from_link(link)
+        df = self._download_csv_from_link(link, skiprows=1)
         return df
 
     def fetch_school_link_tab_file(self, school_name, report_tab, home_suffix=None, start_date=None, end_date=None):
