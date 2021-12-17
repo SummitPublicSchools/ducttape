@@ -284,16 +284,20 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             )
             download_link.click()
         else:
-            dropdown_element = WebDriverWait(self.driver, self.wait_time).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '[alt="Dropdown icon"]'))
-            )
-            dropdown_element.click()
-            # List of elements in dropdown. Sometimes includes more than one option, so we search for Download CSV
-            elements = self.driver.find_elements_by_css_selector('[ng-repeat="menuItem in dashboardGearMenuItems"]')
-            for e in elements:
-                if "Download CSV" in e.text:
-                    e.click()
-                    break
+            try:
+                dropdown_element = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, '[alt="Dropdown icon"]'))
+                )
+                dropdown_element.click()
+                # List of elements in dropdown. Sometimes includes more than one option, so we search for Download CSV
+                elements = self.driver.find_elements_by_css_selector('[ng-repeat="menuItem in dashboardGearMenuItems"]')
+                for e in elements:
+                    if "Download CSV" in e.text:
+                        e.click()
+                        break
+            except:
+                self.driver.get(home_url)
+                return None
 
         retries = 0
         df = None
