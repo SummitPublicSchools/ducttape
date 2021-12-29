@@ -186,6 +186,8 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             message_string = message.as_string()
             # Isolate timestamp that email was sent
             r = re.search("\n \d\d:\d\d:\d\d \+", message_string)
+            if not r:
+                continue
             if not timestamp or r.group(0) > timestamp:
                 timestamp = r.group(0)
                 most_recent_email = message_string
