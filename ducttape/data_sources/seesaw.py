@@ -242,7 +242,9 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             home_url = self.base_url + home_suffix
             self.driver.get(home_url)
 
-        school_element = self.driver.find_element_by_link_text(school_name)
+        school_element = WebDriverWait(self.driver, self.wait_time).until(
+            EC.element_to_be_clickable((By.LINK_TEXT, school_name))
+        )
         school_element.click()
 
         tag_link = WebDriverWait(self.driver, self.wait_time).until(
@@ -281,10 +283,14 @@ class Seesaw(WebUIDataSource, LoggingMixin):
             # Wait a few seconds for stats to update before downloading file
             logging.info("Waiting 5 seconds for stats to update before downloading Analytics file.")
             time.sleep(5)
-            download_link = WebDriverWait(self.driver, self.wait_time).until(
-                EC.element_to_be_clickable((By.LINK_TEXT, 'Download Stats'))
-            )
-            download_link.click()
+            try:
+                download_link = WebDriverWait(self.driver, self.wait_time).until(
+                    EC.element_to_be_clickable((By.LINK_TEXT, 'Download Stats'))
+                )
+                download_link.click()
+            except TimeoutException:
+                self.driver.get(home_url)
+                return None
         else:
             try:
                 dropdown_element = WebDriverWait(self.driver, self.wait_time).until(
