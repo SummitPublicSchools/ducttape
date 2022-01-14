@@ -25,6 +25,8 @@ class TestNavianceDataSource(unittest.TestCase):
             'wait_time': int(CONFIG[config_section_name]['wait_time']),
             'profile_id': int(CONFIG[config_section_name]['profile_id']),
             'headless': CONFIG.getboolean(config_section_name, 'headless'),
+            'sso_user': CONFIG[config_section_name]['sso_username'],
+            'sso_password': CONFIG[config_section_name]['sso_password']
             #'temp_folder_path': CONFIG[config_section_name]['temp_folder_path'],
         }
 
@@ -171,6 +173,19 @@ class TestNavianceDataSource(unittest.TestCase):
         df_result = self.n.download_data_export_by_encoded_params("exportData=Export+Data&start_year=1900&end_year=2034&district_schools%5B%5D=182120USPU&district_schools%5B%5D=217201USPU&district_schools%5B%5D=180578USPU&district_schools%5B%5D=217025USPU&district_schools%5B%5D=179152USPU&type=0&highschool=182120USPU")
 
         print(df_result)
+
+    def test_download_data_export(self):
+        start_year = CONFIG['Naviance']['data_export_start_year']
+        end_year = CONFIG['Naviance']['data_export_end_year']
+        data_type = CONFIG['Naviance']['data_export_id']
+
+        self.n.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('Naviance', 'headless'))
+        self.n._login()
+
+        df_result = self.n.download_data_export(data_type, start_year, end_year)
+        print(df_result)
+
+        self.n.driver.close()
 
 
 if __name__ == '__main__':

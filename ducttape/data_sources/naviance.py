@@ -1,4 +1,5 @@
 import logging
+import os
 import pandas as pd
 import requests
 import shutil
@@ -6,10 +7,11 @@ import time
 
 # selenium imports
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import ElementNotInteractableException
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 
@@ -45,7 +47,8 @@ class Naviance(WebUIDataSource):
     """
 
     def __init__(self, username, password, wait_time, profile_id, profile_type='district',
-                 hostname='succeed.naviance.com', temp_folder_path=None, headless=False):
+                 hostname='succeed.naviance.com', temp_folder_path=None, headless=False,
+                 sso_user=None, sso_password=None):
         """
 
         :param username:
@@ -65,6 +68,8 @@ class Naviance(WebUIDataSource):
         self.uri_scheme = 'https://'
         self.base_url = self.uri_scheme + self.hostname
         self.profile_id = profile_id
+        self.sso_user = sso_user
+        self.sso_password = sso_password
 
         # TODO: Make this more robust
         if profile_type not in ['district']:
@@ -87,24 +92,51 @@ class Naviance(WebUIDataSource):
             EC.element_to_be_clickable((By.CLASS_NAME, "auth0-lock-submit"))
         )
 
+        sso = False
         input_form = self.driver.find_element_by_name("email")
         input_form.clear()
         input_form.send_keys(self.username)
 
-        input_form = self.driver.find_element_by_name("password")
-        input_form.clear()
-        input_form.send_keys(self.password)
+        try:
+            input_form = self.driver.find_element_by_name("password")
+            input_form.clear()
+            input_form.send_keys(self.password)
+        except ElementNotInteractableException:
+            sso = True
 
         button = self.driver.find_element_by_class_name("auth0-lock-submit")
         button.click()
-        WebDriverWait(self.driver, self.wait_time).until(
-            EC.title_is("Profiles") or
-            # TODO - expand this to work with school logins
-            EC.title_is("Naviance District Edition")
-        )
 
-        if EC.title_is("Profiles"):
-            self.driver.get(f'https://id.naviance.com/naviance-profiles/switch/{self.profile_id}')
+        if sso:
+            input_form = WebDriverWait(self.driver, self.wait_time).until(
+                EC.element_to_be_clickable((By.NAME, "identifier"))
+            )
+            input_form.clear()
+            input_form.send_keys(self.sso_user)
+
+            button = self.driver.find_element_by_class_name("VfPpkd-vQzf8d")
+            button.click()
+
+            input_form = WebDriverWait(self.driver, self.wait_time).until(
+                EC.element_to_be_clickable((By.NAME, "password"))
+            )
+            input_form.clear()
+            input_form.send_keys(self.sso_password)
+
+            button = self.driver.find_element_by_class_name("VfPpkd-vQzf8d")
+            button.click()
+
+        try:
+            WebDriverWait(self.driver, self.wait_time).until(
+                EC.title_is("Profiles") or
+                # TODO - expand this to work with school logins
+                EC.title_is("Naviance District Edition")
+            )
+
+            if EC.title_is("Profiles"):
+                self.driver.get(f'https://id.naviance.com/naviance-profiles/switch/{self.profile_id}')
+        except TimeoutException:
+            pass
 
         WebDriverWait(self.driver, self.wait_time).until(
             EC.title_is("Naviance District Edition")
@@ -142,25 +174,26 @@ class Naviance(WebUIDataSource):
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
         self._login()
 
-        if customization_params is not None:
-            # load up the report
-            self.session.get(report_download_url)
+        if "customize" in report_url:
+            if customization_params is None:
+                raise Exception("There must be at least one custom parameter for customization.")
+            self.driver.get(report_url)
+            time.sleep(3)
+            for param in customization_params:
+                select = Select(self.driver.find_element_by_name(param))
+                select.select_by_value(customization_params[param])
 
-            # submit the customizations
-            customize_url = f'{self.base_url}/{self.profile_type}/reporting-framework/reports/customize' \
-                            f'?report_instance_id={report_instance_id}' \
-                            f'&previous=view?report_instance_id={report_instance_id}'
+            while True:
+                try:
+                    button = self.driver.find_element_by_class_name('submit-selected')
+                    button.click()
+                except:
+                    break
 
-            print(customize_url)
-            response = self.session.post(customize_url, params=customization_params)
-
-            response = self.session.get(report_download_csv_url)
-            file_path = f'{csv_download_folder_path}/report.csv'
-            with open(file_path, 'wb') as fh:
-                for chunk in response.iter_content():
-                    fh.write(chunk)
-
-            # time.sleep(30)
+            download_button = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.ID, 'csv'))
+            )
+            download_button.click()
 
         else:
             self.driver.get(report_download_csv_url)
@@ -223,8 +256,40 @@ class Naviance(WebUIDataSource):
         return self.download_url_report(report_url=report_url,
                                         customization_params=customization_params)
 
-    # def download_data_export(self, data_type: int, start_year: int, end_year: int, schools: list):
-    #
+    def download_data_export(self, data_type: str, start_year: str = None, end_year: str = None, sleep=30):
+        url = 'https://succeed.naviance.com/district/setupmain/export.php'
+
+        self.driver.get(url)
+        export_button = WebDriverWait(self.driver, self.wait_time).until(
+            EC.presence_of_element_located((By.NAME, 'exportData'))
+        )
+
+        if start_year:
+            select = Select(self.driver.find_element_by_name('start_year'))
+            select.select_by_value(start_year)
+
+        if end_year:
+            select = Select(self.driver.find_element_by_name('end_year'))
+            select.select_by_value(end_year)
+
+        select = Select(self.driver.find_element_by_name('type'))
+        select.select_by_value(data_type)
+
+        export_button.click()
+        time.sleep(sleep)
+        retries = 0
+        while retries <= 20:
+            try:
+                filename = os.listdir(self.temp_folder_path)[0]
+                df = pd.read_csv(f"{self.temp_folder_path}/{filename}")
+                os.remove(f"{self.temp_folder_path}/{filename}")
+                return df
+            except IndexError as e:
+                if retries == 20:
+                    raise IndexError(e)
+                else:
+                    retries += 1
+                    time.sleep(30)
 
     def download_data_export_by_encoded_params(self, encoded_params, write_to_disk=None, **pandas_read_csv_kwargs):
         if write_to_disk:
