@@ -212,9 +212,13 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
                 elem.click()
             # if it's not there, it may have changed to a "Refresh" button
             except NoSuchElementException as e:
-                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                 button_text='Refresh'))
-                elem.click()
+                try:
+                    elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                     button_text='Download'))
+                except NoSuchElementException as e:
+                    elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                     button_text='Refresh'))
+                    elem.click()
 
         # wait for the refresh command to be issued
         time.sleep(1)
