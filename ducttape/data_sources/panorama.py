@@ -108,3 +108,8 @@ class Panorama(WebUIDataSource, LoggingMixin):
         df = pd.read_csv(file_path)
         os.remove(file_path)
         return df
+
+    def download_url_report(self, report_url):
+        """
+        """
+        return
