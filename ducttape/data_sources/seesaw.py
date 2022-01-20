@@ -224,7 +224,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         df = self._download_csv_from_link(link, skiprows=1)
         return df
 
-    def fetch_school_link_tab_file(self, school_name, report_tab, home_suffix=None, start_date=None, end_date=None):
+    def fetch_school_link_tab_file(self, school_name, report_tab, home_suffix=None, start_date=None, end_date=None, skip_rows=None):
         """
         Given a school name and a report to download, navigate to that school's section and download the requested
         report, then return a pandas DataFrame with the report's information
@@ -319,6 +319,8 @@ class Seesaw(WebUIDataSource, LoggingMixin):
                     elif report_tab.lower() in file:
                         filename = file
                         logging.info(f"Download file at: {self.temp_folder_path}/{file}")
+                if skip_rows:
+                    df = pd.read_csv(f"{self.temp_folder_path}/{filename}", skiprows=skip_rows)
                 df = pd.read_csv(f"{self.temp_folder_path}/{filename}")
             except FileNotFoundError:
                 if retries == NUMBER_OF_RETRIES:
