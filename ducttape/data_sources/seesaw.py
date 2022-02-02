@@ -147,10 +147,11 @@ class Seesaw(WebUIDataSource, LoggingMixin):
                 nums = emails[0].split()
                 # Ensure we get the most recent email
                 message_string = self._get_most_recent_email(imap_connection, nums)
-                r = re.search("https:\/\/assets.seesaw.me.*.csv", message_string)
+                re_str = "https:\/\/assets\.seesaw\.me(.*\n*.*)\.csv(.*\n*.*)\.csv"
+                r = re.search(re_str, message_string)
 
-                link = r.group(0)
-                return link
+                link = r.group(0).replace("\n", "")
+                return link.replace('=', '')
             except IndexError:
                 if retries == NUMBER_OF_RETRIES:
                     raise NoDataError
