@@ -1,14 +1,19 @@
+import pandas as pd
+import time
+import shutil
+
+from deprecated import deprecated
 from ducttape.webui_datasource import WebUIDataSource
+from future.utils import raise_with_traceback
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from future.utils import raise_with_traceback
-from zipfile import ZipFile
-import pandas as pd
-import time
 from tempfile import mkdtemp
-import shutil
+from typing import Optional
+from zipfile import ZipFile
+
+
 from selenium.common.exceptions import (
     TimeoutException,
     NoSuchElementException,
@@ -166,6 +171,11 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         else:
             return False
 
+    # TODO: Set this function back to its behavior prior to trying to add support for the zip reports
+    # TODO: Add a docstring to this function
+    # TODO: update this deprecated reason as appropriate
+    @deprecated(reason='This is replaced by download_csv_site_data_download, download_zip_site_data_download,'
+                       'or other convenience functions like...')
     def download_site_data_download(self, dl_heading, site_id, academic_year, zip_or_csv,
                                     report_generation_wait=REPORT_GENERATION_WAIT,
                                     write_to_disk=None, **kwargs):
@@ -268,3 +278,96 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             return get_most_recent_file_in_dir(csv_download_folder_path)
         # this would return file path of temp directory and would be fairly useless
         return df_report
+
+    def _download_site_data_download(self,
+                                     dl_heading: str,
+                                     site_id: int,
+                                     academic_year: str,
+                                     report_generation_wait: int,
+                                     file_type: str,
+                                     file_path: str,
+                                     date: Optional[str] = None) -> str:
+        """
+        Generates and downloads report files from the Summit Learning Data Downloads web page.
+
+        :param dl_heading: The title of a report on the Summit Learning Data Downloads page. Exclude the
+            academic year. Example: 'Grades for Currently Enrolled Students (By Student/Course)'
+        :param site_id: The id for the school for which the report should be downloaded. Get this from the
+            URL of the data download page. Example: 3650
+        :param academic_year: The academic year for which to download the report. This should match the
+            format of the year in the school year selector drop down menu in the upper right hand
+            corner of the Data Downloads page. Example: 2021-22
+        :param report_generation_wait: When the report requires a 'Generate' button to be clicked, the number
+            of seconds to wait for the report to be generated. Longer times may be needed for schools with
+            more students.
+        :param file_type: Options: 'csv' or 'zip'
+        :param file_path: The path where the downloaded file should be stored.
+        :param date: A string in the format 'YYYY-MM-DD'. This only applies to reports that are generated
+            on a per-date basis.
+        :return: The file path where the downloaded file was stored
+        """
+        if file_type not in ['csv', 'zip']:
+            # TODO add text to value error
+            raise ValueError()
+        pass
+
+    def download_csv_site_data_download(self,
+                                        dl_heading: str,
+                                        site_id: int,
+                                        academic_year: str,
+                                        report_generation_wait: int,
+                                        file_path: Optional[str] = None,
+                                        date: Optional[str] = None,
+                                        ) -> pd.DataFrame:
+        # TODO: Finish filling out the param descriptions for this docstring
+        """
+        Returns a pandas dataframe of a CSV-formatted report from the Summit Learning Data Downloads web page.
+
+        Some of the reports on the Summit Learning Data Download page return CSVs and others return zip
+        files. This function applies to those reports that return a CSV. These reports are typically
+        identifiable as those that have a 'Generate CSV' button. As of 2022-02-02, the CSV reports are:
+        * Grades for Currently Enrolled Students (By Student/Course)
+        * Grades for Currently Enrolled Students (By Student)
+        * Grades for Unenrolled Students (By Student/Course)
+        * Grades by Specific Date for Currently Enrolled Students (By Student/Course)
+        * Grades by Specific Date for Unenrolled Students (By Student/Course)
+        * Student Mentoring Data for Currently Enrolled Students
+
+        :param dl_heading:
+        :param site_id:
+        :param academic_year:
+        :param report_generation_wait:
+        :param file_path:
+        :param date: A string in the format 'YYYY-MM-DD'. This only applies to reports that are generated
+            on a per-date basis.
+        :return: A pandas dataframe of the data downloaded in the CSV report
+        """
+        # TODO: Write this function. It should call _download_site_data_download as part of it
+        pass
+
+    def download_zip_site_data_download(self,
+                                        dl_heading: str,
+                                        site_id: int,
+                                        academic_year: str,
+                                        report_generation_wait: int,
+                                        file_path: str
+                                        ) -> str:
+        # TODO: Finish filling out the param descriptions for this docstring
+        """
+        Generates and downloads a zip-formatted report from the Summit Learning Data Downloads web page.
+
+        Some of the reports on the Summit Learning Data Download page return CSVs and others return zip
+        files. This function applies to those reports that return a zip file. These reports are typically
+        identifiable as those that have a 'Generate Reports' button. As of 2022-02-02, the zip reports are:
+        * Grade-Specific Academic Data Reports
+        * Subject-Specific Academic Data Reports
+        :param dl_heading:
+        :param site_id:
+        :param academic_year:
+        :param report_generation_wait:
+        :param file_path:
+        :return: The file path of the downloaded zip file
+        """
+        # TODO: Write this function. It should call _download_site_data_download as part of it
+        pass
+
