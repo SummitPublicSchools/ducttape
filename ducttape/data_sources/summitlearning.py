@@ -4,6 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from future.utils import raise_with_traceback
+from zipfile import ZipFile
 import pandas as pd
 import time
 from tempfile import mkdtemp
@@ -34,7 +35,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
     def __init__(self, username, password, wait_time, hostname='summitlearning.org', temp_folder_path=None,
                  headless=False, login_provider='google'):
         super().__init__(username, password, wait_time, hostname, temp_folder_path, headless)
-        self.login_provider=login_provider
+        self.login_provider = login_provider
         self.uri_scheme = 'https://'
         self.base_url = self.uri_scheme + 'www.' + self.hostname
 
@@ -99,11 +100,11 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
 
         self.log.debug('Starting download of: '.format(report_download_url))
 
-        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
+        wait_for_any_file_in_folder(csv_download_folder_path, 'csv')
         self.log.debug('Download Finished.')
 
         df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                  **kwargs)
+                                **kwargs)
 
         # if the dataframe is empty (the report had no data), raise an error
         if df_report.shape[0] == 0:
@@ -165,8 +166,9 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         else:
             return False
 
-    def download_site_data_download(self, dl_heading, site_id, academic_year, report_generation_wait=REPORT_GENERATION_WAIT,
-                                write_to_disk=None, **kwargs):
+    def download_site_data_download(self, dl_heading, site_id, academic_year, zip_or_csv,
+                                    report_generation_wait=REPORT_GENERATION_WAIT,
+                                    write_to_disk=None, **kwargs):
         if write_to_disk:
             csv_download_folder_path = write_to_disk
         else:
@@ -185,7 +187,6 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
 
         if not self.check_dl_academic_year(academic_year):
             raise ValueError("Academic Year not correctly set")
-
         # start the CSV generation process
         download_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), '{button_text}')]"
 
@@ -193,7 +194,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         old_interface = False
         try:
             elem = self.driver.find_element_by_xpath(download_button_xpath.format(dl_heading=dl_heading,
-                                                                             button_text='Download CSV'))
+                                                                                  button_text='Download CSV'))
             old_interface = True
             self.log.info("'Download CSV' interface detected.")
             elem.click()
@@ -214,11 +215,18 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             except NoSuchElementException as e:
                 try:
                     elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                     button_text='Download'))
-                except NoSuchElementException as e:
-                    elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
                                                                                      button_text='Refresh'))
+                    self.log.info("Refresh.")
                     elem.click()
+                # if we don't have 'refresh' or 'generate', we have 'Download' button can can proceed to next step
+                except NoSuchElementException as e:
+                    try:
+                        elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                         button_text='Generate Reports'))
+                        self.log.info("Generate Report")
+                        elem.click()
+                    except NoSuchElementException as e:
+                        pass
 
         # wait for the refresh command to be issued
         time.sleep(1)
@@ -240,20 +248,23 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             )
             elem.click()
 
-        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
+        wait_for_any_file_in_folder(csv_download_folder_path, zip_or_csv)
         self.log.debug('Download Finished.')
 
-        df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                **kwargs)
+        if zip_or_csv == 'csv':
+            df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
+                                    **kwargs)
 
-        # if the dataframe is empty (the report had no data), raise an error
-        if df_report.shape[0] == 0:
-            raise NoDataError('No data in report "{}" for site_id "{}"'.format(
-                dl_heading, site_id))
+            # if the dataframe is empty (the report had no data), raise an error
+            if df_report.shape[0] == 0:
+                raise NoDataError('No data in report "{}" for site_id "{}"'.format(
+                    dl_heading, site_id))
 
-        self.driver.close()
+            self.driver.close()
 
-        if not write_to_disk:
-            shutil.rmtree(csv_download_folder_path)
-
+            if not write_to_disk:
+                shutil.rmtree(csv_download_folder_path)
+        else:
+            return get_most_recent_file_in_dir(csv_download_folder_path)
+        # this would return file path of temp directory and would be fairly useless
         return df_report
