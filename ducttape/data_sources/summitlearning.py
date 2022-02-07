@@ -11,8 +11,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from tempfile import mkdtemp
 from typing import Optional
-from zipfile import ZipFile
-
 
 from selenium.common.exceptions import (
     TimeoutException,
@@ -33,7 +31,8 @@ from ducttape.exceptions import (
     NoDataError,
 )
 
-REPORT_GENERATION_WAIT = 10
+REPORT_GENERATION_WAIT_CSV = 10
+REPORT_GENERATION_WAIT_ZIP = 60
 
 
 class SummitLearning(WebUIDataSource, LoggingMixin):
@@ -171,13 +170,12 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         else:
             return False
 
-    # TODO: Set this function back to its behavior prior to trying to add support for the zip reports
     # TODO: Add a docstring to this function
     # TODO: update this deprecated reason as appropriate
     @deprecated(reason='This is replaced by download_csv_site_data_download, download_zip_site_data_download,'
                        'or other convenience functions like...')
-    def download_site_data_download(self, dl_heading, site_id, academic_year, zip_or_csv,
-                                    report_generation_wait=REPORT_GENERATION_WAIT,
+    def download_site_data_download(self, dl_heading, site_id, academic_year,
+                                    report_generation_wait=REPORT_GENERATION_WAIT_CSV,
                                     write_to_disk=None, **kwargs):
         if write_to_disk:
             csv_download_folder_path = write_to_disk
@@ -197,6 +195,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
 
         if not self.check_dl_academic_year(academic_year):
             raise ValueError("Academic Year not correctly set")
+
         # start the CSV generation process
         download_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), '{button_text}')]"
 
@@ -226,17 +225,10 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
                 try:
                     elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
                                                                                      button_text='Refresh'))
-                    self.log.info("Refresh.")
                     elem.click()
                 # if we don't have 'refresh' or 'generate', we have 'Download' button can can proceed to next step
                 except NoSuchElementException as e:
-                    try:
-                        elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                         button_text='Generate Reports'))
-                        self.log.info("Generate Report")
-                        elem.click()
-                    except NoSuchElementException as e:
-                        pass
+                    pass
 
         # wait for the refresh command to be issued
         time.sleep(1)
@@ -258,31 +250,29 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             )
             elem.click()
 
-        wait_for_any_file_in_folder(csv_download_folder_path, zip_or_csv)
+        wait_for_any_file_in_folder(csv_download_folder_path, "csv")
         self.log.debug('Download Finished.')
 
-        if zip_or_csv == 'csv':
-            df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                    **kwargs)
+        df_report = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
+                                **kwargs)
 
-            # if the dataframe is empty (the report had no data), raise an error
-            if df_report.shape[0] == 0:
-                raise NoDataError('No data in report "{}" for site_id "{}"'.format(
-                    dl_heading, site_id))
+        # if the dataframe is empty (the report had no data), raise an error
+        if df_report.shape[0] == 0:
+            raise NoDataError('No data in report "{}" for site_id "{}"'.format(
+                dl_heading, site_id))
 
-            self.driver.close()
+        self.driver.close()
 
-            if not write_to_disk:
-                shutil.rmtree(csv_download_folder_path)
-        else:
-            return get_most_recent_file_in_dir(csv_download_folder_path)
-        # this would return file path of temp directory and would be fairly useless
+        if not write_to_disk:
+            shutil.rmtree(csv_download_folder_path)
+
         return df_report
 
     def _download_site_data_download(self,
                                      dl_heading: str,
                                      site_id: int,
                                      academic_year: str,
+                                     file_name: str,
                                      report_generation_wait: int,
                                      file_type: str,
                                      file_path: str,
@@ -306,20 +296,89 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             on a per-date basis.
         :return: The file path where the downloaded file was stored
         """
+        download_folder_path = mkdtemp()
+
         if file_type not in ['csv', 'zip']:
-            # TODO add text to value error
-            raise ValueError()
-        pass
+            raise ValueError('File format must be zip or csv')
+
+        self.driver = DriverBuilder().get_driver(download_folder_path, self.headless)
+        self._login()
+
+        dl_page_url = "{base_url}/sites/{site_id}/data_downloads/".format(
+            base_url=self.base_url,
+            site_id=site_id
+        )
+
+        self.driver.get(dl_page_url)
+
+        self._set_dl_academic_year(academic_year)
+
+        if not self.check_dl_academic_year(academic_year):
+            raise ValueError("Academic Year not correctly set")
+
+        # start the ZIP generation process
+        download_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), '{button_text}')]"
+
+        gen_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
+        try:
+            if file_type == 'zip':
+                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                 button_text='Generate Reports'))
+                self.log.info("'Generate Reports' interface detected.")
+                elem.click()
+            if file_type == 'csv:':
+                elem = self.driver.find_element_by_xpath(download_button_xpath.format(dl_heading=dl_heading,
+                                                                                      button_text='Download CSV'))
+                old_interface = True
+                self.log.info("'Download CSV' interface detected.")
+                elem.click()
+        # if it's not there, it may have changed to a "Refresh" button
+        except NoSuchElementException as e:
+            try:
+                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
+                                                                                 button_text='Refresh'))
+                elem.click()
+            # if we don't have 'refresh' or 'generate', we have 'Download' button can can proceed to next step
+            except NoSuchElementException as e:
+                pass
+
+        # wait for the refresh command to be issued
+        time.sleep(report_generation_wait)
+
+        # wait for the report to be available and download it
+        self.log.info('Starting download of report "{}" for site_id "{}"'.format(dl_heading, site_id))
+
+        dl_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//a[contains(text(), 'Download')]"
+        try:
+            elem = WebDriverWait(self.driver, report_generation_wait).until(
+                EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
+            )
+            elem.click()
+        # if the download is not ready, refresh the page and try one more time
+        except TimeoutException:
+            self.driver.refresh()
+            elem = WebDriverWait(self.driver, report_generation_wait).until(
+                EC.presence_of_element_located((By.XPATH, dl_button_xpath.format(dl_heading=dl_heading)))
+            )
+            elem.click()
+
+        wait_for_any_file_in_folder(download_folder_path, file_type)
+        downloaded_file_path = get_most_recent_file_in_dir(download_folder_path)
+        shutil.copyfile(downloaded_file_path, f"{file_path}/{file_name}")
+        return f"{file_path}/{file_name}"
 
     def download_csv_site_data_download(self,
                                         dl_heading: str,
                                         site_id: int,
                                         academic_year: str,
-                                        report_generation_wait: int,
+                                        file_name: str,
+                                        report_generation_wait: int = REPORT_GENERATION_WAIT_CSV,
                                         file_path: Optional[str] = None,
                                         date: Optional[str] = None,
                                         ) -> pd.DataFrame:
         # TODO: Finish filling out the param descriptions for this docstring
+        # if file path not provided, create temporary directory to store file in, which is passed to protected function;
+        # temp directory deleted at end of this function
         """
         Returns a pandas dataframe of a CSV-formatted report from the Summit Learning Data Downloads web page.
 
@@ -343,16 +402,33 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         :return: A pandas dataframe of the data downloaded in the CSV report
         """
         # TODO: Write this function. It should call _download_site_data_download as part of it
-        pass
+
+        self._download_site_data_download(dl_heading=dl_heading, site_id=site_id, academic_year=academic_year,
+                                          file_name=file_name, report_generation_wait=REPORT_GENERATION_WAIT_CSV, file_type='csv',
+                                          file_path=file_path)
+        # moved down here
+        df_report = pd.read_csv(get_most_recent_file_in_dir(file_path),
+                                **kwargs)
+
+        # if the dataframe is empty (the report had no data), raise an error
+        if df_report.shape[0] == 0:
+            raise NoDataError('No data in report "{}" for site_id "{}"'.format(
+                dl_heading, site_id))
+
+        self.driver.close()
+
+        return df_report
 
     def download_zip_site_data_download(self,
                                         dl_heading: str,
                                         site_id: int,
                                         academic_year: str,
-                                        report_generation_wait: int,
-                                        file_path: str
+                                        file_name: str,
+                                        file_path: Optional[str] = None,
+                                        report_generation_wait: int = REPORT_GENERATION_WAIT_ZIP
                                         ) -> str:
         # TODO: Finish filling out the param descriptions for this docstring
+        # should be straightforward, just call protected function and have it return file path after download
         """
         Generates and downloads a zip-formatted report from the Summit Learning Data Downloads web page.
 
@@ -369,5 +445,6 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         :return: The file path of the downloaded zip file
         """
         # TODO: Write this function. It should call _download_site_data_download as part of it
-        pass
-
+        return self._download_site_data_download(dl_heading=dl_heading, site_id=site_id, academic_year=academic_year,
+                                                 file_name=file_name, report_generation_wait=REPORT_GENERATION_WAIT_ZIP, file_type='zip',
+                                                 file_path=file_path)
