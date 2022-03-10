@@ -257,6 +257,14 @@ class Naviance(WebUIDataSource):
                                         customization_params=customization_params)
 
     def download_data_export(self, data_type: str, start_year: str = None, end_year: str = None, sleep=30):
+        """
+        Downloads a basic data export from the Settings -> Data Export page in Naviance.
+        :param data_type: The export to download
+        :param start_year: The beginning class year to download from
+        :param end_year: The ending class year to download from
+        :pram sleep: Time to wait to check for downloaded file after clicking "Download" button
+        :returns: None
+        """
         url = 'https://succeed.naviance.com/district/setupmain/export.php'
 
         self.driver.get(url)
