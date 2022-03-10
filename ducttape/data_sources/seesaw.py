@@ -248,6 +248,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
         )
         school_element.click()
 
+        # Click on correct tab, according to report_tab variable
         tag_link = WebDriverWait(self.driver, self.wait_time).until(
             EC.presence_of_element_located((By.LINK_TEXT, report_tab))
         )
