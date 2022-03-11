@@ -149,6 +149,7 @@ class Seesaw(WebUIDataSource, LoggingMixin):
                 message_string = self._get_most_recent_email(imap_connection, nums)
                 re_str = "https:\/\/assets\.seesaw\.me(.*\n*.*)\.csv(.*\n*.*)\.csv"
                 r = re.search(re_str, message_string)
+                print(r)
 
                 link = r.group(0).replace("\n", "")
                 return link.replace('=', '')
