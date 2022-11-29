@@ -116,9 +116,6 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         except TimeoutException:
             self.log.debug('No wm-shoutout found')
 
-        # SM implemented a pop-up that doesn't use the wm-shoutout class
-        self.__remove_walk_me_and_support()
-
     def __remove_walk_me_and_support(self):
         """Removes two third party overlays that can block buttons that selenium needs to click."""
         self.log.info('Removing "Walk-Me" and "Support" overlays.')
@@ -248,6 +245,8 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         # set up the driver for execution
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
         self._login()
+        # Clear pop-ups by reloading page
+        self.driver.get(self.base_url)
         self._set_year(school_year, self.driver)
 
         # get the report url
@@ -341,6 +340,8 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             headless=self.headless
         )
         self._login()
+        # Clear pop-ups by reloading page
+        self.driver.get(self.base_url)
         self._set_year(school_year, self.driver)
 
         # get the custom reports page
