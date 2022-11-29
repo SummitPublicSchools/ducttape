@@ -116,6 +116,9 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         except TimeoutException:
             self.log.debug('No wm-shoutout found')
 
+        # SM implemented a pop-up that doesn't use the wm-shoutout class
+        self.__remove_walk_me_and_support()
+
     def __remove_walk_me_and_support(self):
         """Removes two third party overlays that can block buttons that selenium needs to click."""
         self.log.info('Removing "Walk-Me" and "Support" overlays.')
