@@ -50,6 +50,7 @@ class SEIS(WebUIDataSource):
 
         Args:
             search_id (integer): The number identifying the report in SEIS.
+            as_of (string): String representing the date for logging
 
         Returns:
             Path to the file downloaded
