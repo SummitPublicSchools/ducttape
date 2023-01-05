@@ -46,9 +46,9 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
             # the Google login screen has multiple versions - the 'Email' one
             # seems to be used when headless
             try:
-                elem = self.driver.find_element_by_id('Email')
+                elem = self.driver.find_element(By.ID, 'Email')
             except NoSuchElementException:
-                elem = self.driver.find_element_by_id('identifierId')
+                elem = self.driver.find_element(By.ID, 'identifierId')
             elem.clear()
             elem.send_keys(self.username)
             elem.send_keys(Keys.RETURN)
@@ -140,7 +140,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         try:
             year_xpath = "//*[@id='academic-year-selector']/parent::div//a[contains(text(),'{}')]".format(
                 academic_year)
-            elem = self.driver.find_element_by_xpath(year_xpath)
+            elem = self.driver.find_element(By.XPATH, year_xpath)
             elem.click()
         except NoSuchElementException as e:
             self.driver.save_screenshot('cannot_find_year.png')
@@ -158,7 +158,7 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         # The UI uses a '–' instead of a '-'. We'll make a convenience replacement
         academic_year = academic_year.replace('-', '–')
 
-        elem = self.driver.find_element_by_xpath("//*[@id='academic-year-selector']/parent::div//button")
+        elem = self.driver.find_element(By.XPATH, "//*[@id='academic-year-selector']/parent::div//button")
 
         if academic_year in elem.text:
             return True
@@ -192,8 +192,13 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         # try to find the "Download CSV" button - old version of the interface
         old_interface = False
         try:
-            elem = self.driver.find_element_by_xpath(download_button_xpath.format(dl_heading=dl_heading,
-                                                                             button_text='Download CSV'))
+            elem = self.driver.find_element(
+                By.XPATH,
+                download_button_xpath.format(
+                    dl_heading=dl_heading,
+                    button_text='Download CSV'
+                )
+            )
             old_interface = True
             self.log.info("'Download CSV' interface detected.")
             elem.click()
@@ -206,18 +211,33 @@ class SummitLearning(WebUIDataSource, LoggingMixin):
         if not old_interface:
             gen_button_xpath = "//h3[contains(text(), '{dl_heading}')]/parent::div/parent::div//button[contains(text(), '{button_text}')]"
             try:
-                elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                 button_text='Generate CSV'))
+                elem = self.driver.find_element(
+                    By.XPATH,
+                    gen_button_xpath.format(
+                        dl_heading=dl_heading,
+                        button_text='Generate CSV'
+                    )
+                )
                 self.log.info("'Generate CSV' interface detected.")
                 elem.click()
             # if it's not there, it may have changed to a "Refresh" button
             except NoSuchElementException as e:
                 try:
-                    elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                     button_text='Download'))
+                    elem = self.driver.find_element(
+                        By.XPATH,
+                        gen_button_xpath.format(
+                            dl_heading=dl_heading,
+                            button_text='Download'
+                        )
+                    )
                 except NoSuchElementException as e:
-                    elem = self.driver.find_element_by_xpath(gen_button_xpath.format(dl_heading=dl_heading,
-                                                                                     button_text='Refresh'))
+                    elem = self.driver.find_element(
+                        By.XPATH,
+                        gen_button_xpath.format(
+                            dl_heading=dl_heading,
+                            button_text='Refresh'
+                        )
+                    )
                     elem.click()
 
         # wait for the refresh command to be issued

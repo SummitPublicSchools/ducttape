@@ -81,7 +81,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 elem = WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'login')))
                 elem.clear()
                 elem.send_keys(self.username)
-                elem = self.driver.find_element_by_id("password")
+                elem = self.driver.find_element(By.ID, "password")
                 elem.send_keys(self.password)
                 elem.send_keys(Keys.RETURN)
                 break
@@ -111,7 +111,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 EC.presence_of_element_located((By.CLASS_NAME, 'wm-shoutout'))
             )
             self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
-            elem = self.driver.find_element_by_id('walkme-overlay-all')
+            elem = self.driver.find_element(By.ID, 'walkme-overlay-all')
             self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
         except TimeoutException:
             self.log.debug('No wm-shoutout found')
@@ -138,7 +138,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 self.log.debug('Success')
                 self.log.debug('Removing "Walk Me" bouncing overlay.')
                 try:
-                    elem = self.driver.find_element_by_id('walkme-attengrab')
+                    elem = self.driver.find_element(By.ID, 'walkme-attengrab')
                     self.driver.execute_script("""var elem=arguments[0];elem.parentNode.removeChild(elem);""", elem)
                     self.log.debug('Success')
                 except NoSuchElementException:
@@ -185,13 +185,13 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             self._login()
 
         # open the year selector menu
-        elem = self.driver.find_element_by_xpath("//a[contains(@class,'dropdown-toggle enrollment')]")
+        elem = self.driver.find_element(By.XPATH, "//a[contains(@class,'dropdown-toggle enrollment')]")
         elem.click()
 
         # select the appropriate year
         try:
             year_xpath = "//*[@id='enrollment-selector']//a[contains(text(),'{}')]".format(school_year)
-            elem = self.driver.find_element_by_xpath(year_xpath)
+            elem = self.driver.find_element(By.XPATH, year_xpath)
             elem.click()
         except NoSuchElementException as e:
             self.driver.save_screenshot('cannot_find_year.png')
@@ -215,8 +215,10 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
     def check_school_year(self, school_year):
         """Checks that the school year is set as expected in the UI."""
-        elem = self.driver.find_element_by_xpath(
-            "//a[contains(@class,'dropdown-toggle enrollment')]/span[contains(@class,'current')]")
+        elem = self.driver.find_element(
+            By.XPATH, 
+            "//a[contains(@class,'dropdown-toggle enrollment')]/span[contains(@class,'current')]"
+        )
         if school_year in elem.text:
             return True
         else:
@@ -264,7 +266,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         self.log.debug('Waiting for report-data-summary to load')
         # wait until the stream table is fully loaded before downloading
-        prev_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
+        prev_data_summary_elem = self.driver.find_element(By.ID, 'report-data-summary').text
         # print(prev_data_summary_elem)
         time.sleep(1)
         # we use the following count as a proxy for time elapsed, so we can
@@ -272,13 +274,13 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         count = 0
         while True:
             # check id=report-data-summary
-            report_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
+            report_data_summary_elem = self.driver.find_element(By.ID, 'report-data-summary').text
 
             # if it matches, wait a little longer and double deck that it hasn't changed
             if prev_data_summary_elem == report_data_summary_elem:
                 time.sleep(3)
                 count += 3
-                report_data_summary_elem = self.driver.find_element_by_id('report-data-summary').text
+                report_data_summary_elem = self.driver.find_element(By.ID, 'report-data-summary').text
                 if prev_data_summary_elem == report_data_summary_elem:
                     break
             prev_data_summary_elem = report_data_summary_elem
@@ -290,7 +292,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         # click the button to download the report
         self.log.debug('Starting download...')
-        elem = self.driver.find_element_by_class_name("export-table")
+        elem = self.driver.find_element(By.CLASS_NAME, "export-table")
         elem.click()
 
         # wait until file has downloaded to close the browser. We can do this
@@ -364,7 +366,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             )
 
             try:
-                elem = self.driver.find_element_by_xpath(report_name_xpath)
+                elem = self.driver.find_element(By.XPATH, report_name_xpath)
                 return current_page
             except NoSuchElementException:
                 current_page += 1
@@ -372,7 +374,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                     next_page_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page={}]/a'.format(
                         current_page
                     )
-                    self.driver.find_element_by_xpath(next_page_xpath).click()
+                    self.driver.find_element(By.XPATH, next_page_xpath).click()
 
                     # scroll back to the top of the page, prevents selenium clicking errors
                     self.driver.execute_script("window.scrollTo(0, 0);")

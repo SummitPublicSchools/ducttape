@@ -60,7 +60,7 @@ class Clever(WebUIDataSource, LoggingMixin):
 
         elem.clear()
         elem.send_keys(self.username)
-        elem = self.driver.find_element_by_name("password")
+        elem = self.driver.find_element(By.NAME, "password")
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
 
