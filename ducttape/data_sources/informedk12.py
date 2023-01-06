@@ -37,10 +37,10 @@ class InformedK12(WebUIDataSource):
         """
         self.logger.debug('logging in to Informed K12 Schools with username: {}'.format(self.username))
         self.driver.get(self.base_url)
-        elem = self.driver.find_element_by_id("session_email")
+        elem = self.driver.find_element(By.ID, "session_email")
         elem.clear()
         elem.send_keys(self.username)
-        elem = self.driver.find_element_by_id("session_password")
+        elem = self.driver.find_element(By.ID, "session_password")
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
 
@@ -77,7 +77,7 @@ class InformedK12(WebUIDataSource):
 
                 # check to see if there are no submissions. If so, abort by exception
                 try:
-                    self.driver.find_element_by_xpath("//h2[contains(text(), 'No submissions')]")
+                    self.driver.find_element(By.XPATH, "//h2[contains(text(), 'No submissions')]")
                     self.driver.close()
                     raise ValueError('No data in report for user {} at url: {}'.format(self.username, interpret_report_url(self.base_url, report_url)))
                 except NoSuchElementException:
@@ -96,17 +96,20 @@ class InformedK12(WebUIDataSource):
 
                 # check to see if a new link populates to 'select all filtered submissions" (happens if more than 50 submissions)
                 try:
-                    elem = self.driver.find_element_by_xpath("//*[@class='responses-bulk-actions']/*[@class='select-link']")
+                    elem = self.driver.find_element(By.XPATH, "//*[@class='responses-bulk-actions']/*[@class='select-link']")
                     elem.click()
                 except NoSuchElementException():
                     pass
 
                 # click download
-                elem = self.driver.find_element_by_xpath("//*[contains(text(), 'Download') and @class='hidden-xs']")
+                elem = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Download') and @class='hidden-xs']")
                 elem.click()
 
                 # click 'As a spreadsheet'
-                elem = self.driver.find_element_by_xpath("//*[@class='dropdown-menu dropdown-menu-right']//*[contains(text(), 'As a spreadsheet')]")
+                elem = self.driver.find_element(
+                    By.XPATH,
+                    "//*[@class='dropdown-menu dropdown-menu-right']//*[contains(text(), 'As a spreadsheet')]"
+                )
                 elem.click()
 
                 # activate the menu that allows 'select all'
@@ -120,20 +123,25 @@ class InformedK12(WebUIDataSource):
                     raise
 
                 # click on 'select all'
-                elem = self.driver.find_element_by_xpath("//*[@class='dropdown-menu dropdown-menu-right']//*[contains(text(), 'Select all')]")
+                elem = self.driver.find_element(
+                    By.XPATH,
+                    "//*[@class='dropdown-menu dropdown-menu-right']//*[contains(text(), 'Select all')]"
+                )
                 elem.click()
 
                 # wait a moment for the info to populate
                 time.sleep(2)
 
                 # click download
-                # elem = self.driver.find_element_by_xpath(
-                #     "//*[@class='btn btn-primary' and contains(text(), 'Download')]")
+                # elem = self.driver.find_element(
+                #     By.XPATH, 
+                #     "//*[@class='btn btn-primary' and contains(text(), 'Download')]"
+                # )
                 # elem.click()
                 #
                 # time.sleep(1)
                 # try:
-                #     elem = self.driver.find_element_by_xpath(
+                #     elem = self.driver.find_element(By.XPATH, 
                 #         "//*[@class='btn btn-primary' and contains(text(), 'Download')]")
                 #     elem.click()
                 # except WebDriverException:
@@ -145,7 +153,7 @@ class InformedK12(WebUIDataSource):
                 while True:
 
                     try:
-                        elem = self.driver.find_element_by_xpath(
+                        elem = self.driver.find_element(By.XPATH, 
                             "//*[@class='btn btn-primary' and contains(text(), 'Download')]")
                         elem.click()
                     except NoSuchElementException:

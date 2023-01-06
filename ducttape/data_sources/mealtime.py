@@ -28,10 +28,10 @@ class Mealtime(WebUIDataSource):
         """ Logs into the provided Mealtime instance.
         """
         self.driver.get(self.base_url + '/Base/SignIn.aspx')
-        elem = self.driver.find_element_by_id("username")
+        elem = self.driver.find_element(By.ID, "username")
         elem.clear()
         elem.send_keys(self.username)
-        elem = self.driver.find_element_by_id("password")
+        elem = self.driver.find_element(By.ID, "password")
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
 
@@ -56,14 +56,14 @@ class Mealtime(WebUIDataSource):
         self.driver.get(interpret_report_url(self.base_url, report_url))
 
         # select the download format (csv) and execute
-        export_format_select = Select(self.driver.find_element_by_id('ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl00'))
+        export_format_select = Select(self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl00'))
         try:
             export_format_select.select_by_value('CSV')
             dl_type = 'csv'
         except NoSuchElementException:
             export_format_select.select_by_value('EXCELNoHeader')
             dl_type = 'xls'
-        self.driver.find_element_by_id('ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl01').click()
+        self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl01').click()
 
         # wait until file has downloaded to close the browser. We can do this
         # because we delete the file before we return it, so the temp dir should

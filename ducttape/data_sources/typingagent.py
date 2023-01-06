@@ -38,7 +38,7 @@ class TypingAgent(WebUIDataSource):
             raise
         elem.clear()
         elem.send_keys(self.username)
-        elem = self.driver.find_element_by_id("LoginForm_password")
+        elem = self.driver.find_element(By.ID, "LoginForm_password")
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
 
@@ -84,7 +84,7 @@ class TypingAgent(WebUIDataSource):
         except TimeoutException:
             raise
 
-        school_code_options = elem_select_school.find_elements_by_xpath("//*[@id='school_prof']/option")
+        school_code_options = elem_select_school.find_elements(By.XPATH, "//*[@id='school_prof']/option")
         schools = list()
         for school_code_option in school_code_options:
             if school_code_option.get_attribute("value") is not "":
@@ -94,8 +94,8 @@ class TypingAgent(WebUIDataSource):
                 })
 
         # get all of the school grades
-        elem_select_grade = self.driver.find_element_by_id('grade_prof')
-        grade_options = elem_select_grade.find_elements_by_xpath("//*[@id='grade_prof']/option")
+        elem_select_grade = self.driver.find_element(By.ID, 'grade_prof')
+        grade_options = elem_select_grade.find_elements(By.XPATH, "//*[@id='grade_prof']/option")
         grades = list()
         for grade_option in grade_options:
             if grade_option.get_attribute("value") is not "":

@@ -17,6 +17,7 @@ The following products are currently supported, some have more functionality tha
 * Mealtime
 * Typing Agent
 * Summit Learning
+* SEIS
 
 ## Installing / Getting started
 
