@@ -185,7 +185,11 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             self._login()
 
         # open the year selector menu
-        elem = self.driver.find_element(By.XPATH, "//a[contains(@class,'dropdown-toggle enrollment')]")
+        elem = WebDriverWait(self.driver, self.wait_time).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//a[contains(@class,'dropdown-toggle enrollment')]")
+            )
+        )
         elem.click()
 
         # select the appropriate year
