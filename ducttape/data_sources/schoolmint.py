@@ -9,7 +9,7 @@ from future import standard_library
 from future.utils import raise_with_traceback
 standard_library.install_aliases()
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException,
@@ -185,7 +185,11 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             self._login()
 
         # open the year selector menu
-        elem = self.driver.find_element(By.XPATH, "//a[contains(@class,'dropdown-toggle enrollment')]")
+        elem = WebDriverWait(self.driver, timeout=180).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//a[contains(@class,'dropdown-toggle enrollment')]")
+            )
+        )
         elem.click()
 
         # select the appropriate year
@@ -204,7 +208,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         # wait for the page to be ready again
         self.driver.get(self.base_url)
-        WebDriverWait(self.driver, self.wait_time).until(
+        WebDriverWait(self.driver, timeout=180).until(
             EC.presence_of_element_located((By.ID, 'student-lookup'))
         )
 
