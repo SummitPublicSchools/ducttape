@@ -91,7 +91,11 @@ def interpret_report_url(base_url, report_url):
 
 
 def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
-    """ Waits until the first file shows up in a folder.
+    """
+    Waits until the first file shows up in a folder.
+    
+    Return:
+    file_found (bool): True if a file found; False if no file found.
     """
     count = 0
     if not file_format:
@@ -105,7 +109,7 @@ def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
             print(files)
             # break 'while' loop if files found
             if file_found:
-                break
+                return True
             time.sleep(1)
     else:
         file_found = False
@@ -124,8 +128,10 @@ def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
 
             # break 'while' loop if files found
             if file_found:
-                break
+                return True
             time.sleep(1)
+    # No file found before timeout
+    return False
 
 
 def correct_list_dataframe_dimensions(rows, columns):
