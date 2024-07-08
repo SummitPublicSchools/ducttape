@@ -408,6 +408,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         if generate_report_button.text == 'Generate Report':
             generate_report_button.click()
+            time.sleep(1) # SchoolMint needs a short amount of time to register the click in some environments
             self.driver.close()
 
             return True
