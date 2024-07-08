@@ -1,6 +1,7 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 
@@ -32,7 +33,8 @@ class Mealtime(WebUIDataSource):
         elem = self.driver.find_element(By.ID, "username")
         elem.clear()
         elem.send_keys(self.username)
-        elem = self.driver.find_element(By.ID, "password")
+        elem.send_keys(Keys.RETURN)
+        elem = WebDriverWait(self.driver, self.wait_time).until(EC.element_to_be_clickable((By.ID, "password")))
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
 
