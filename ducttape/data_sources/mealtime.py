@@ -58,15 +58,22 @@ class Mealtime(WebUIDataSource):
         # get the report url
         self.driver.get(interpret_report_url(self.base_url, report_url))
 
-        # select the download format (csv) and execute
-        export_format_select = Select(self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl00'))
-        try:
-            export_format_select.select_by_value('CSV')
+        url_base_folder = report_url[:report_url.find("/")]
+
+        # Reports in the "Income Surveys" module have a different path for exporting
+        if url_base_folder == 'Survey':
+            self.driver.find_element(By.ID, 'exportButton').click()
             dl_type = 'csv'
-        except NoSuchElementException:
-            export_format_select.select_by_value('EXCELNoHeader')
-            dl_type = 'xls'
-        self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl01').click()
+        else:
+            # select the download format (csv) and execute
+            export_format_select = Select(self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl00'))
+            try:
+                export_format_select.select_by_value('CSV')
+                dl_type = 'csv'
+            except NoSuchElementException:
+                export_format_select.select_by_value('EXCELNoHeader')
+                dl_type = 'xls'
+            self.driver.find_element(By.ID, 'ctl00_ctl00_MainContent_reportViewer_ctl01_ctl05_ctl01').click()
 
         # wait until file has downloaded to close the browser. We can do this
         # because we delete the file before we return it, so the temp dir should
@@ -78,8 +85,9 @@ class Mealtime(WebUIDataSource):
         #xlrd.open_workbook(utils.get_most_recent_file_in_dir(csv_download_folder_path), formatting_info=False)
 
         if dl_type == 'csv':
+            header_row = 0 if url_base_folder == 'Survey' else 2
             report_df = pd.read_csv(get_most_recent_file_in_dir(csv_download_folder_path),
-                                      header=2)
+                                      header=header_row)
         else:
             report_df = pd.read_excel(get_most_recent_file_in_dir(csv_download_folder_path),
                                       header=3)
