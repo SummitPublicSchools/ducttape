@@ -240,6 +240,15 @@ class Lexia(WebUIDataSource, LoggingMixin):
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
+    
+    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={},
+                                                      period_end_date=dt.datetime.now().date()):
+        return self._download_district_export(
+            report_type='powerup_detailed',
+            period_end_date=period_end_date,
+            write_to_disk=write_to_disk,
+            pandas_read_csv_kwargs=pandas_read_csv_kwargs
+        )
 
     def _download_district_export(self, report_type, period_end_date, period_start_date=None,
                                   write_to_disk=None, pandas_read_csv_kwargs={}):
