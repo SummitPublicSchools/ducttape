@@ -55,7 +55,7 @@ adequate customer-facing APIs. This will be most successful if contributors come
 from different school systems; iron will sharpen iron and we will get better coverage of ed-tech products.
 
 If you are interested in developing (and especially if you are interested in adding in support for a new
-product), please reach out to pyoho@summitps.org.
+product), please reach out to mdunham@summitps.org and hshen@summitps.org.
 
 #### Ideas for Future Development
 
@@ -76,8 +76,9 @@ these ed-tech platforms so that we could fully automate unit testing and have be
 
 ## Contributing
 
-If you'd like to contribute new functionality, please reach out to patrick@innovateedunyc.org. If you have
-a bug fix or a code clean-up suggestion, feel free to fork us and submit a pull request.
+If you'd like to contribute new functionality, please reach out to mdunham@summitps.org and
+hshen@summitps.org. If you have a bug fix or a code clean-up suggestion, feel free to fork us 
+and submit a pull request.
 
 ## Licensing
 

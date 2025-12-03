@@ -80,11 +80,14 @@ class Lexia(WebUIDataSource, LoggingMixin):
         elem.send_keys(Keys.RETURN)
 
         # ensure that login is successful
-        self.driver.get(self.base_url)
-
-        if 'Welcome' in self.driver.title:
+        try:
+            elem = WebDriverWait(self.driver, self.wait_time).until(
+                EC.presence_of_element_located((By.ID, 'dashboard-link'))
+            )
+            self.log.info('Login sucessful!')
+        except:
             self.driver.close()
-            raise InvalidLoginCredentials
+            raise InvalidLoginCredentials 
 
     def download_url_report(self, report_url, write_to_disk=None, **kwargs):
         """ Downloads a Lexia report at a URL for a page with an 'export' button.
@@ -237,12 +240,22 @@ class Lexia(WebUIDataSource, LoggingMixin):
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
+    
+    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={},
+                                                      period_end_date=dt.datetime.now().date()):
+        return self._download_district_export(
+            report_type='powerup_detailed',
+            period_end_date=period_end_date,
+            write_to_disk=write_to_disk,
+            pandas_read_csv_kwargs=pandas_read_csv_kwargs
+        )
 
     def _download_district_export(self, report_type, period_end_date, period_start_date=None,
                                   write_to_disk=None, pandas_read_csv_kwargs={}):
         if not period_start_date:
             period_start_date = self.lexia_school_year_start_date
-        self.__request_district_export(report_type, period_start_date, period_end_date)
+        was_request_successful = self.__request_district_export(report_type, period_start_date, period_end_date)
+        assert was_request_successful, 'Export request failed.'
 
         df_report = None
         number_retries = int(self.district_export_email_wait_time / self.district_export_email_retry_frequency)
@@ -262,6 +275,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
                 continue
 
             try:
+                # Note: If the most recent exportid in the email folder is from a previously requested export,
+                #    then this download will fail on the Lexia side, and the function will try again after a wait.
                 df_report = self.__download_export_for_exportid(export_id, write_to_disk, pandas_read_csv_kwargs)
                 break
             except NoDataError as e:
@@ -361,9 +376,10 @@ class Lexia(WebUIDataSource, LoggingMixin):
         """ Extract the export_id that is sent by Lexia that is needed to
         download the prepared report export.
 
-        Email messages in Gmail aren't sorted can can't be sorted using
-        regular IMAP functions (Gmail does not support them). Therefore
-        we will search within the folder for messages in the last day.
+        Email messages in Gmail can't be sorted using regular IMAP functions 
+        (Gmail does not support them) and search can only be done by dates, 
+        not times. Therefore, we will search within the folder for messages 
+        since yesterday.
 
         Args:
             imap_conn (imaplib.IMAP4_SSL): A current connection to an IMAP
@@ -404,8 +420,6 @@ class Lexia(WebUIDataSource, LoggingMixin):
                         self.log.info('export_id found: ' + str(export_id))
                         if export_id > highest_export_id:
                             highest_export_id = export_id
-                    else:
-                        return -1
 
         return highest_export_id
 
