@@ -443,7 +443,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
             export_url = self.base_url + '/reports/get_export.php' + '?id=' + str(export_id)
             download_response = s.get(export_url)
 
-            self.log.info('Report download request response for export_id {}: {}'.format(
+            # Logging as debug, because it will otherwise log all the data in the report
+            self.log.debug('Report download request response for export_id {}: {}'.format(
                 export_id,
                 download_response.content
             ))
