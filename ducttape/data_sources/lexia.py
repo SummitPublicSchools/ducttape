@@ -86,7 +86,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
             )
             self.log.info('Login sucessful!')
         except:
-            self.driver.close()
+            self.driver.quit()
             raise InvalidLoginCredentials 
 
     def download_url_report(self, report_url, write_to_disk=None, **kwargs):
@@ -141,7 +141,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
             raise ValueError('No data in report for user {} at url: {}'.format(
                 self.username, interpret_report_url(self.base_url, report_url)))
 
-        self.driver.close()
+        self.driver.quit()
 
         if not write_to_disk:
             shutil.rmtree(csv_download_folder_path)
@@ -207,7 +207,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
             raise ValueError('No data in report for user {} at url: {}'.format(
                 self.username, interpret_report_url(self.base_url, report_url)))
 
-        self.driver.close()
+        self.driver.quit()
 
         if not write_to_disk:
             shutil.rmtree(csv_download_folder_path)
@@ -285,6 +285,10 @@ class Lexia(WebUIDataSource, LoggingMixin):
                     e,
                     self.district_export_email_retry_frequency
                 ))
+
+        # Regardless of outcome, end the driver instance
+        self.driver.quit()
+        
         if df_report is None:
             raise ReportNotFound('No email was received with report id. Make sure the emails are not going to spam.')
         else:
@@ -459,8 +463,6 @@ class Lexia(WebUIDataSource, LoggingMixin):
                         self.username, export_url))
             else:
                 raise ValueError('Report download request failed')
-
-        self.driver.close()
 
         if write_to_disk:
             df_report.to_csv(write_to_disk)
