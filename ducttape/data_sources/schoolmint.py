@@ -92,7 +92,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         try:
             elem = WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'student-lookup')))
         except TimeoutException:
-            self.driver.close()
+            self.driver.quit()
             raise InvalidLoginCredentials
 
         # wait for the page to fully load - the walk-me player is the last thing, but since it's a third
@@ -213,7 +213,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         )
 
         if not driver:
-            self.driver.close()
+            self.driver.quit()
 
         return True
 
@@ -314,7 +314,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         shutil.rmtree(csv_download_folder_path)
 
         # close the driver for this task
-        self.driver.close()
+        self.driver.quit()
 
         # if the dataframe is empty (the report had no data), raise an error
         if report_df.shape[0] == 0:
@@ -409,14 +409,15 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         if generate_report_button.text == 'Generate Report':
             generate_report_button.click()
             time.sleep(1) # SchoolMint needs a short amount of time to register the click in some environments
-            self.driver.close()
+            self.driver.quit()
 
             return True
         elif generate_report_button.text == 'Report in Progress':
-            self.driver.close()
+            self.driver.quit()
 
             return False
         else:
+            self.driver.quit()
             raise ValueError("Unknown 'Generate Report' button text found")
 
     def is_custom_report_generating(self, report_name, school_year):
@@ -509,7 +510,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         delete_folder_contents(csv_download_folder_path)
 
         # close the driver for this task
-        driver.close()
+        driver.quit()
 
         # if the dataframe is empty (the report had no data), raise an error
         if report_df.shape[0] == 0:
@@ -548,7 +549,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         # TODO add a try/except block here
         wait_for_any_file_in_folder(download_dir_final, "zip")
 
-        driver.close()
+        driver.quit()
 
         if unzip:
             # unzip the files
