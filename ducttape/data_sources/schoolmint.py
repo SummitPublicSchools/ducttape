@@ -404,6 +404,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
                 EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
         except NoSuchElementException:
+            self.driver.quit()
             raise ReportNotFound
 
         if generate_report_button.text == 'Generate Report':
@@ -429,13 +430,17 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
                 EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
         except NoSuchElementException:
+            self.driver.quit()
             raise ReportNotFound
 
         if generate_report_button.text == 'Report in Progress':
+            self.driver.quit()
             return True
         elif generate_report_button.text == 'Generate Report':
+            self.driver.quit()
             return False
         else:
+            self.driver.quit()
             raise ValueError("Unknown 'Generate Report' button text found")
 
     def get_last_custom_report_generation_datetime(self, report_name, school_year):
@@ -458,8 +463,10 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
             except TimeoutException:
+                self.driver.quit()
                 raise ReportNotFound
 
+        self.driver.quit()
         return report_generated_on_text
 
     def _download_custom_report(self, report_name, school_year, download_folder_path, download_if_generating=False):
@@ -484,6 +491,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         elif generate_report_button_text == 'Report in Progress' and download_if_generating:
             elem.click()
         else:
+            self.driver.quit()
             raise ReportNotReady
 
         return self.driver
