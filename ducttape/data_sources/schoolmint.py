@@ -204,6 +204,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 'Passed value for school_year: {}'
             ).format(school_year)
 
+            self.driver.quit()
             raise_with_traceback(type(e)(str(e) + message))
 
         # wait for the page to be ready again
@@ -217,6 +218,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         return True
 
+    # TODO: Indicate this is an internal function with a leading underscore.
     def check_school_year(self, school_year):
         """Checks that the school year is set as expected in the UI."""
         elem = self.driver.find_element(
@@ -266,6 +268,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         )
 
         if not self.check_school_year(school_year):
+            self.driver.quit()
             raise ReportNotFound("Wrong school detected prior to clicking generate.")
 
         self.log.debug('Waiting for report-data-summary to load')
@@ -292,6 +295,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
             count += 1
             if count >= self.wait_time:
+                self.driver.quit()
                 raise TimeoutError('SchoolMint Report Data never did not fully load within %d' % self.wait_time)
 
         # click the button to download the report
@@ -383,6 +387,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                     # scroll back to the top of the page, prevents selenium clicking errors
                     self.driver.execute_script("window.scrollTo(0, 0);")
 
+        self.driver.quit()
         raise ReportNotFound
 
     def generate_custom_report(self, report_name, school_year):
@@ -397,6 +402,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         self.__navigate_to_custom_report(report_name, school_year)
 
         if not self.check_school_year(school_year):
+            self.driver.quit()
             raise ReportNotFound("Wrong school detected prior to clicking generate.")
 
         generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
