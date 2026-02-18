@@ -329,6 +329,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         return report_df
 
+    # TODO: Delete this function? Doesn't seem to be used.
     def __get_number_of_pages(self):
         """Get the number of pages in a SchoolMint pagination."""
         total_num_pages_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page][last()]'
