@@ -204,6 +204,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 'Passed value for school_year: {}'
             ).format(school_year)
 
+            self.driver.quit()
             raise_with_traceback(type(e)(str(e) + message))
 
         # wait for the page to be ready again
@@ -217,6 +218,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         return True
 
+    # TODO: Indicate this is an internal function with a leading underscore.
     def check_school_year(self, school_year):
         """Checks that the school year is set as expected in the UI."""
         elem = self.driver.find_element(
@@ -266,6 +268,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         )
 
         if not self.check_school_year(school_year):
+            self.driver.quit()
             raise ReportNotFound("Wrong school detected prior to clicking generate.")
 
         self.log.debug('Waiting for report-data-summary to load')
@@ -292,6 +295,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
             count += 1
             if count >= self.wait_time:
+                self.driver.quit()
                 raise TimeoutError('SchoolMint Report Data never did not fully load within %d' % self.wait_time)
 
         # click the button to download the report
@@ -325,6 +329,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
 
         return report_df
 
+    # TODO: Delete this function? Doesn't seem to be used.
     def __get_number_of_pages(self):
         """Get the number of pages in a SchoolMint pagination."""
         total_num_pages_xpath = '//*[@id="content"]//*[@class="pagination "]/li[@data-page][last()]'
@@ -383,6 +388,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                     # scroll back to the top of the page, prevents selenium clicking errors
                     self.driver.execute_script("window.scrollTo(0, 0);")
 
+        self.driver.quit()
         raise ReportNotFound
 
     def generate_custom_report(self, report_name, school_year):
@@ -397,6 +403,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         self.__navigate_to_custom_report(report_name, school_year)
 
         if not self.check_school_year(school_year):
+            self.driver.quit()
             raise ReportNotFound("Wrong school detected prior to clicking generate.")
 
         generate_report_button_xpath = GENERATE_REPORT_BUTTON_XPATH.format(report_name=report_name)
@@ -404,6 +411,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
                 EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
         except NoSuchElementException:
+            self.driver.quit()
             raise ReportNotFound
 
         if generate_report_button.text == 'Generate Report':
@@ -429,13 +437,17 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             generate_report_button = WebDriverWait(self.driver, self.wait_time).until(
                 EC.presence_of_element_located((By.XPATH, generate_report_button_xpath)))
         except NoSuchElementException:
+            self.driver.quit()
             raise ReportNotFound
 
         if generate_report_button.text == 'Report in Progress':
+            self.driver.quit()
             return True
         elif generate_report_button.text == 'Generate Report':
+            self.driver.quit()
             return False
         else:
+            self.driver.quit()
             raise ValueError("Unknown 'Generate Report' button text found")
 
     def get_last_custom_report_generation_datetime(self, report_name, school_year):
@@ -458,8 +470,10 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                 report_generated_on_text = WebDriverWait(self.driver, self.wait_time).until(
                     EC.presence_of_element_located((By.XPATH, report_generated_on_xpath))).text
             except TimeoutException:
+                self.driver.quit()
                 raise ReportNotFound
 
+        self.driver.quit()
         return report_generated_on_text
 
     def _download_custom_report(self, report_name, school_year, download_folder_path, download_if_generating=False):
@@ -484,6 +498,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         elif generate_report_button_text == 'Report in Progress' and download_if_generating:
             elem.click()
         else:
+            self.driver.quit()
             raise ReportNotReady
 
         return self.driver
