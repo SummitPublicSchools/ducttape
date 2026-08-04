@@ -60,6 +60,10 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
     """
 
     def __init__(self, username, password, wait_time, hostname, temp_folder_path, headless=False, gmail_service=None):
+        """
+        gmail_service = an authenticated Gmail API service object
+        """
+
         # try:
         #     self.logger = logging.getLogger('sps-automation.data_sources.schoolmint.Schoolmint')
         # except AttributeError:
