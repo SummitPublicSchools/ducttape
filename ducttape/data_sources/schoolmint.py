@@ -261,6 +261,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             )
         except TimeoutException:
             # no MFA prompt appeared at all, proceed as before
+            self.log.info('No MFA prompt appeared.')
             return
 
         if len(mfa_code) != 6 or not mfa_code.isdigit():
