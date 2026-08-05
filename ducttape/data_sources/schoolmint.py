@@ -80,7 +80,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
         # so we'll add a retry here
         count = 0
         while count < NUMBER_OF_RETRIES:
-            self.log.info('Logging into SchoolMint at, try {}: {}'.format(count, self.base_url))
+            self.log.info('Logging into SchoolMint at {} - try #{}'.format(self.base_url, count))
             self.driver.get(self.base_url + "/signin")
             # wait until login form available
             try:
@@ -259,37 +259,36 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'mfa-code-inputs'))
             )
-
-            if len(mfa_code) != 6 or not mfa_code.isdigit():
-                raise ValueError('Unexpected MFA code format: {!r}'.format(mfa_code))
-
-            digit_inputs = self.driver.find_elements(
-                By.CSS_SELECTOR, '.mfa-code-cell'
-            )
-            if len(digit_inputs) != 6:
-                raise NoSuchElementException(
-                    'Expected 6 MFA digit inputs, found {}'.format(len(digit_inputs))
-                )
-
-            for digit, input_elem in zip(mfa_code, digit_inputs):
-                input_elem.send_keys(digit)
-
-            # check whether the UI rejected the code
-            try:
-                error_elem = WebDriverWait(self.driver, 3).until(
-                    EC.visibility_of_element_located((By.CLASS_NAME, 'mfa-code-error'))
-                )
-                if error_elem.text.strip():
-                    self.driver.quit()
-                    raise InvalidLoginCredentials(
-                        'SchoolMint rejected MFA code: {}'.format(error_elem.text.strip())
-                    )
-            except TimeoutException:
-                # no error shown -> code was accepted
-                pass
-
         except TimeoutException:
             # no MFA prompt appeared at all, proceed as before
+            return
+
+        if len(mfa_code) != 6 or not mfa_code.isdigit():
+            raise ValueError('Unexpected MFA code format: {!r}'.format(mfa_code))
+
+        digit_inputs = self.driver.find_elements(
+            By.CSS_SELECTOR, '.mfa-code-cell'
+        )
+        if len(digit_inputs) != 6:
+            raise NoSuchElementException(
+                'Expected 6 MFA digit inputs, found {}'.format(len(digit_inputs))
+            )
+
+        for digit, input_elem in zip(mfa_code, digit_inputs):
+            input_elem.send_keys(digit)
+
+        # check whether the UI rejected the code
+        try:
+            error_elem = WebDriverWait(self.driver, 3).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, 'mfa-code-error'))
+            )
+            if error_elem.text.strip():
+                self.driver.quit()
+                raise InvalidLoginCredentials(
+                    'SchoolMint rejected MFA code: {}'.format(error_elem.text.strip())
+                )
+        except TimeoutException:
+            # no error shown -> code was accepted
             pass
 
     def __remove_walk_me_and_support(self):
