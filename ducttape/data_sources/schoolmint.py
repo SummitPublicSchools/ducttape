@@ -94,14 +94,29 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             except ElementNotVisibleException:
                 count += 1
 
-        self.log.info('Waiting 10 seconds to ensure MFA email is sent.')
-        time.sleep(10)
+        mfa_needed = False
 
-        self.log.info('Getting MFA code from email.')
-        mfa_code = self._get_latest_schoolmint_code_from_mfa_email(service = self.gmail_service, max_results=5, max_age_minutes=5)
+        try:
+            self.log.info('Checking for MFA prompt.')
+            # wait for the MFA input row to appear
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'mfa-code-inputs'))
+            )
+            self.log.info('MFA prompt found.')
+            mfa_needed = True
+        except TimeoutException:
+            # no MFA prompt appeared at all, proceed as before
+            self.log.info('No MFA prompt appeared.')
 
-        self.log.info('Entering MFA code into prompt.')
-        self._enter_mfa_code_into_prompt(mfa_code)
+        if(mfa_needed):
+            self.log.info('Waiting 10 seconds to ensure MFA email is sent.')
+            time.sleep(10)
+
+            self.log.info('Getting MFA code from email.')
+            mfa_code = self._get_latest_schoolmint_code_from_mfa_email(service = self.gmail_service, max_results=5, max_age_minutes=5)
+
+            self.log.info('Entering MFA code into prompt.')
+            self._enter_mfa_code_into_prompt(mfa_code)
 
         # check that login succeeded by looking for the 'Student search' box
         self.log.info('Checking that login succeeded.')
@@ -254,16 +269,6 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             this is treated as "no MFA required for this login" rather than
             an error.
         """
-        try:
-            # wait for the MFA input row to appear
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'mfa-code-inputs'))
-            )
-        except TimeoutException:
-            # no MFA prompt appeared at all, proceed as before
-            self.log.info('No MFA prompt appeared.')
-            return
-
         if len(mfa_code) != 6 or not mfa_code.isdigit():
             raise ValueError('Unexpected MFA code format: {!r}'.format(mfa_code))
 
