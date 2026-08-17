@@ -82,7 +82,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         # ensure that login is successful
         try:
             elem = WebDriverWait(self.driver, self.wait_time).until(
-                EC.presence_of_element_located((By.ID, 'dashboard-link'))
+                EC.presence_of_element_located((By.ID, 'mat-tab-link-0'))
             )
             self.log.info('Login sucessful!')
         except:
