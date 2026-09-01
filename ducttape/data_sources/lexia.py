@@ -215,47 +215,36 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         return df_report
 
-    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                               period_end_date=dt.datetime.now().date()):
+    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='export',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                    period_end_date=dt.datetime.now().date()):
+    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='expytd',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                      period_end_date=dt.datetime.now().date()):
+    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='pupytd',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
     
-    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                      period_end_date=dt.datetime.now().date()):
+    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='powerup_detailed',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def _download_district_export(self, report_type, period_end_date, period_start_date=None,
-                                  write_to_disk=None, pandas_read_csv_kwargs={}):
-        if not period_start_date:
-            period_start_date = self.lexia_school_year_start_date
-        was_request_successful = self.__request_district_export(report_type, period_start_date, period_end_date)
+    def _download_district_export(self, report_type, write_to_disk=None, pandas_read_csv_kwargs={}):
+        was_request_successful = self.__request_district_export(report_type)
         assert was_request_successful, 'Export request failed.'
 
         df_report = None
