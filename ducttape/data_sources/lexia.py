@@ -294,6 +294,10 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         Logs into Lexia and submits the request to generate a district export
         by navigating to the actual 'District Exports' modal via Selenium.
+
+        :param report_type: The "value" from one of 'Report type' options listed in the myLexia
+            'District Exports' modal.
+        :return: Boolean. Whether or not the export request was successful.
         """
         if write_to_disk:
             csv_download_folder_path = write_to_disk
@@ -450,6 +454,14 @@ class Lexia(WebUIDataSource, LoggingMixin):
         Downloads the report associated with a specific export_id by having
         the browser itself navigate to the export URL, letting the existing
         authenticated session handle it (avoids cross-domain cookie issues).
+
+        Args:
+            export_id (int): The Lexia export id to download.
+            write_to_disk (str): An option path where the CSV that has been downloaded should be written 
+                to disk.
+            pandas_read_csv_kwargs (dict): kwargs to pass to the Pandas read_csv function as necessary
+        Returns:
+            A Pandas dataframe with the report contents
         """
         self.log.info(str(self.district_id) + ': downloading report with export_id=' +
                     str(export_id))
