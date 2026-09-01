@@ -19,6 +19,7 @@ import email
 import sys
 import datetime as dt
 import re
+import os
 import io
 import time
 
@@ -244,7 +245,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         )
 
     def _download_district_export(self, report_type, write_to_disk=None, pandas_read_csv_kwargs={}):
-        was_request_successful = self.__request_district_export(report_type)
+        was_request_successful = self.__request_district_export(report_type, write_to_disk=write_to_disk)
         assert was_request_successful, 'Export request failed.'
 
         df_report = None
@@ -282,6 +283,10 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         # Regardless of outcome, end the driver instance
         self.driver.quit()
+
+        # Remove the temp folder if used
+        if not write_to_disk:
+            shutil.rmtree(self._export_download_folder, ignore_errors=True)
         
         if df_report is None:
             raise ReportNotFound('No email was received with report id. Make sure the emails are not going to spam.')
@@ -302,7 +307,12 @@ class Lexia(WebUIDataSource, LoggingMixin):
         if write_to_disk:
             csv_download_folder_path = write_to_disk
         else:
-            csv_download_folder_path = self.temp_folder_path
+            csv_download_folder_path = mkdtemp()
+
+        # Store this so __download_export_for_exportid uses the SAME folder
+        # the browser was actually configured to download into.
+        self._export_download_folder = csv_download_folder_path
+
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
         self._login()
 
@@ -466,7 +476,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         self.log.info(str(self.district_id) + ': downloading report with export_id=' +
                     str(export_id))
 
-        download_folder = write_to_disk if write_to_disk else self.temp_folder_path
+        download_folder = write_to_disk if write_to_disk else self._export_download_folder
         export_url = self.base_url + '/reports/get_export.php' + '?id=' + str(export_id)
 
         self.log.info('Navigating browser to export URL: {}'.format(export_url))
@@ -474,9 +484,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         # Give the browser a moment to either download the file or render a
         # response (e.g. an error/login page) so we can distinguish the two.
-        try:
-            wait_for_any_file_in_folder(download_folder, "csv", timeout=30)
-        except Exception:
+        file_found = wait_for_any_file_in_folder(download_folder, "csv", timeout=30)
+        if not file_found:
             # No file appeared -- check what the browser actually loaded
             page_source_snippet = self.driver.page_source[:500]
             self.log.error('No CSV file appeared after navigating to export URL. '
@@ -494,10 +503,5 @@ class Lexia(WebUIDataSource, LoggingMixin):
         if df_report.shape[0] == 0:
             raise NoDataError('No data in report for user {} at url: {}'.format(
                 self.username, export_url))
-
-        if not write_to_disk:
-            # clean up the temp file since we're not persisting it
-            import os
-            os.remove(downloaded_path)
 
         return df_report
