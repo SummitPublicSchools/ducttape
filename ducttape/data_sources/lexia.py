@@ -51,7 +51,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
                  district_export_email_address=None, district_export_email_password=None,
                  district_export_email_imap_uri=None, district_export_email_folder='Lexia District Exports',
                  district_export_email_wait_time=600, district_export_email_retry_frequency=30, district_id=None):
-        super().__init__(username, password, wait_time, hostname, headless)
+        super().__init__(username, password, wait_time, hostname, headless=headless)
         self.lexia_school_year_start_date = lexia_school_year_start_date
         self.district_export_email_address = district_export_email_address
         self.district_export_email_password = district_export_email_password
