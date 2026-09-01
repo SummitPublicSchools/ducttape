@@ -78,6 +78,7 @@ class Lexia(WebUIDataSource, LoggingMixin):
         elem = WebDriverWait(self.driver, self.wait_time).until(EC.presence_of_element_located((By.ID, 'login-password')))
         elem.send_keys(self.password)
         elem.send_keys(Keys.RETURN)
+        time.sleep(5)
 
         # ensure that login is successful
         try:
@@ -214,47 +215,36 @@ class Lexia(WebUIDataSource, LoggingMixin):
 
         return df_report
 
-    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                               period_end_date=dt.datetime.now().date()):
+    def download_district_export_core5_monthly(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='export',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                    period_end_date=dt.datetime.now().date()):
+    def download_district_export_core5_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='expytd',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                      period_end_date=dt.datetime.now().date()):
+    def download_district_export_powerup_year_to_date(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='pupytd',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
     
-    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={},
-                                                      period_end_date=dt.datetime.now().date()):
+    def download_district_export_powerup_detailed_student(self, write_to_disk=None, pandas_read_csv_kwargs={}):
         return self._download_district_export(
             report_type='powerup_detailed',
-            period_end_date=period_end_date,
             write_to_disk=write_to_disk,
             pandas_read_csv_kwargs=pandas_read_csv_kwargs
         )
 
-    def _download_district_export(self, report_type, period_end_date, period_start_date=None,
-                                  write_to_disk=None, pandas_read_csv_kwargs={}):
-        if not period_start_date:
-            period_start_date = self.lexia_school_year_start_date
-        was_request_successful = self.__request_district_export(report_type, period_start_date, period_end_date)
+    def _download_district_export(self, report_type, write_to_disk=None, pandas_read_csv_kwargs={}):
+        was_request_successful = self.__request_district_export(report_type)
         assert was_request_successful, 'Export request failed.'
 
         df_report = None
@@ -265,6 +255,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
             self.log.info(str(self.district_id) + ': get export_id from email, try: ' + str(retry_count))
             try:
                 export_id = self.__get_exportid_from_email()
+                if export_id == 0:
+                    raise ValueError('export_id = 0, indicating no valid exports were found.')
             except ValueError as err:
                 self.log.debug(err)
                 self.log.warning('{}: No export_id found in email, retrying in {} seconds.'.format(
@@ -285,6 +277,8 @@ class Lexia(WebUIDataSource, LoggingMixin):
                     e,
                     self.district_export_email_retry_frequency
                 ))
+            except:
+                self.log.warning(f'An exception occurred, likely that the report is not ready yet. Retrying in {self.district_export_email_retry_frequency} seconds.')
 
         # Regardless of outcome, end the driver instance
         self.driver.quit()
@@ -294,18 +288,15 @@ class Lexia(WebUIDataSource, LoggingMixin):
         else:
             return df_report
 
-    def __request_district_export(self, report_type, period_start_date=None, period_end_date=None,
-                                  write_to_disk=None):
+    def __request_district_export(self, report_type, write_to_disk=None):
         """
+        [Developed with Claude]
+
         Logs into Lexia and submits the request to generate a district export
-        :param report_type: The text from one of 'Report type' options listed in the myLexia
+        by navigating to the actual 'District Exports' modal via Selenium.
+
+        :param report_type: The "value" from one of 'Report type' options listed in the myLexia
             'District Exports' modal.
-        :param period_start_date: The start date for the report request (unsure if this actually
-            affects the data returned if it is different from the school year start date set
-            for your Lexia instance)
-        :param period_end_date: The end date for the report request (unsure if this actually
-            affects the data returned if it is different from the day on which the request is made)
-        :param write_to_disk: The path to save the CSV to.
         :return: Boolean. Whether or not the export request was successful.
         """
         if write_to_disk:
@@ -315,34 +306,63 @@ class Lexia(WebUIDataSource, LoggingMixin):
         self.driver = DriverBuilder().get_driver(csv_download_folder_path, self.headless)
         self._login()
 
-        # use requests to post the download request
-        with requests.Session() as s:
-            for cookie in self.driver.get_cookies():
-                s.cookies.set(cookie['name'], cookie['value'])
+        # Click the "District Exports" button to open the modal
+        self.log.info(2)
+        export_button = WebDriverWait(self.driver, self.wait_time).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'District Exports')]"))
+        )
+        export_button.click()
 
-            payload = {
-                "districtID": self.district_id,
-                "type": report_type,
-                "email": self.district_export_email_address,
-                "startDate": period_start_date.strftime("%Y-%m-%d"),
-                "endDate": period_end_date.strftime("%Y-%m-%d")
-            }
-            self.log.info('{}: Export request payload: {}'.format(self.district_id, payload))
-            download_response = s.put(self.base_url + '/exportData/progress', data=payload)
+        # Wait for the dialog to render
+        self.log.info(3)
+        WebDriverWait(self.driver, self.wait_time).until(
+            EC.visibility_of_element_located((By.ID, "email"))
+        )
 
-            if download_response.ok:
-                self.log.info('{}: Export request for {} succeeded for user: {}'.format(
-                    self.district_id, report_type, self.username
-                ))
-                j_data = json.loads(download_response.content.decode())
-                self.log.info(j_data)
-                return True
-            else:
-                self.log.info('{}: Export request for {} FAILED  for user: {}'.format(
-                    self.district_id, report_type, self.username
-                ))
-                self.log.info(download_response.content)
-                return False
+        # Fill in the email field
+        self.log.info(4)
+        email_field = self.driver.find_element(By.ID, "email")
+        email_field.clear()
+        email_field.send_keys(self.district_export_email_address)
+
+        # Select the correct radio button for the report type
+        # (report_type values match the radio input 'value' attributes exactly,
+        #  e.g. 'export', 'expytd', 'core5_detailed', 'pupytd',
+        #  'powerup_monthly', 'powerup_detailed')
+        self.log.info(5)
+        radio_input = WebDriverWait(self.driver, self.wait_time).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//input[@type='radio' and @value='{}']".format(report_type))
+            )
+        )
+        # Click the associated label, since the radio input itself is visually hidden/overlaid
+        self.log.info(6)
+        label = self.driver.find_element(By.XPATH, "//label[@for='{}']".format(radio_input.get_attribute("id")))
+        label.click()
+
+        # Click Submit
+        self.log.info(7)
+        submit_button = WebDriverWait(self.driver, self.wait_time).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Submit')]"))
+        )
+        submit_button.click()
+
+        # Wait briefly for the confirmation notification to appear, confirming success
+        try:
+            self.log.info(8)
+            WebDriverWait(self.driver, self.wait_time).until(
+                EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'notification') and contains(@class, 'success')]"))
+            )
+            self.log.info('{}: Export request for {} succeeded for user: {}'.format(
+                self.district_id, report_type, self.username
+            ))
+            return True
+        except Exception as e:
+            self.log.info('{}: Export request for {} FAILED for user: {}'.format(
+                self.district_id, report_type, self.username
+            ))
+            self.log.info(str(e))
+            return False
 
     def __get_exportid_from_email(self):
         """Log into an IMAP email server and get messages in a specific folder.
@@ -428,43 +448,56 @@ class Lexia(WebUIDataSource, LoggingMixin):
         return highest_export_id
 
     def __download_export_for_exportid(self, export_id, write_to_disk=None, pandas_read_csv_kwargs={}):
-        """Logs into lexia and downloads the report associated with a specific
-        export_id.
+        """
+        [Developed with Claude]
+
+        Downloads the report associated with a specific export_id by having
+        the browser itself navigate to the export URL, letting the existing
+        authenticated session handle it (avoids cross-domain cookie issues).
 
         Args:
             export_id (int): The Lexia export id to download.
-            write_to_disk (str): A path where the CSV that has been downloaded should be written to disk.
+            write_to_disk (str): An option path where the CSV that has been downloaded should be written 
+                to disk.
             pandas_read_csv_kwargs (dict): kwargs to pass to the Pandas read_csv function as necessary
         Returns:
             A Pandas dataframe with the report contents
         """
         self.log.info(str(self.district_id) + ': downloading report with export_id=' +
-                      str(export_id))
-        with requests.Session() as s:
-            for cookie in self.driver.get_cookies():
-                s.cookies.set(cookie['name'], cookie['value'])
+                    str(export_id))
 
-            export_url = self.base_url + '/reports/get_export.php' + '?id=' + str(export_id)
-            download_response = s.get(export_url)
+        download_folder = write_to_disk if write_to_disk else self.temp_folder_path
+        export_url = self.base_url + '/reports/get_export.php' + '?id=' + str(export_id)
 
-            # Logging as debug, because it will otherwise log all the data in the report
-            self.log.debug('Report download request response for export_id {}: {}'.format(
-                export_id,
-                download_response.content
-            ))
+        self.log.info('Navigating browser to export URL: {}'.format(export_url))
+        self.driver.get(export_url)
 
-            if download_response.ok:
-                df_report = pd.read_csv(io.StringIO(download_response.content.decode(LEXIA_CSV_ENCODING)),
-                                        **pandas_read_csv_kwargs)
+        # Give the browser a moment to either download the file or render a
+        # response (e.g. an error/login page) so we can distinguish the two.
+        try:
+            wait_for_any_file_in_folder(download_folder, "csv", timeout=30)
+        except Exception:
+            # No file appeared -- check what the browser actually loaded
+            page_source_snippet = self.driver.page_source[:500]
+            self.log.error('No CSV file appeared after navigating to export URL. '
+                            'Page source starts with: {}'.format(page_source_snippet))
+            raise NoDataError(
+                'No CSV downloaded for export_id {}; browser may not be authenticated '
+                'or export not ready.'.format(export_id)
+            )
 
-                # if the dataframe is empty (the report had no data), raise an error
-                if df_report.shape[0] == 0:
-                    raise NoDataError('No data in report for user {} at url: {}'.format(
-                        self.username, export_url))
-            else:
-                raise ValueError('Report download request failed')
+        downloaded_path = get_most_recent_file_in_dir(download_folder)
+        self.log.info('Download finished: {}'.format(downloaded_path))
 
-        if write_to_disk:
-            df_report.to_csv(write_to_disk)
+        df_report = pd.read_csv(downloaded_path, **pandas_read_csv_kwargs)
+
+        if df_report.shape[0] == 0:
+            raise NoDataError('No data in report for user {} at url: {}'.format(
+                self.username, export_url))
+
+        if not write_to_disk:
+            # clean up the temp file since we're not persisting it
+            import os
+            os.remove(downloaded_path)
 
         return df_report

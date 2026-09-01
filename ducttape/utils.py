@@ -111,6 +111,7 @@ def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
             if file_found:
                 return True
             time.sleep(1)
+            count += 1
     else:
         file_found = False
         while count < timeout:
@@ -130,6 +131,7 @@ def wait_for_any_file_in_folder(folder_path, file_format=None, timeout=60):
             if file_found:
                 return True
             time.sleep(1)
+            count += 1
     # No file found before timeout
     return False
 
