@@ -3,6 +3,7 @@ import unittest
 import configparser
 import ducttape.data_sources.summitlearning as sl
 import selenium
+from selenium.webdriver.common.by import By
 from ducttape.utils import DriverBuilder
 from selenium.common.exceptions import NoSuchElementException
 
@@ -50,6 +51,7 @@ class TestSummitLearningDataSource(unittest.TestCase):
         else:
             self.screen_shot(self.sl_dlcsv)
 
+# idea here is that if it fails, take a screenshot of UI page
     def screen_shot(self, sl_object):
         """
 
@@ -65,9 +67,11 @@ class TestSummitLearningDataSource(unittest.TestCase):
 
     # @unittest.skip('running subset of tests')
     def test_login(self):
-        self.sl.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('SummitLearning', 'headless'))
+        mydriver = self.sl.driver = DriverBuilder().get_driver(headless=CONFIG.getboolean('SummitLearning', 'headless'))
         self.sl._login()
-        self.sl.driver.close()
+        home_link = mydriver.find_element(By.LINK_TEXT, "Home")
+        self.assertTrue(home_link, "Home")
+        # self.sl.driver.close()
 
     # @unittest.skip('running subset of tests')
     def test_set_dl_academic_year(self):
@@ -120,6 +124,20 @@ class TestSummitLearningDataSource(unittest.TestCase):
     # @unittest.skip('running subset of tests')
     def test_download_site_data_download_old_interface(self):
         heading = "Grades for Currently Enrolled Students (By Student/Course)"
+
+        result = self.sl_dlcsv.download_site_data_download(
+            dl_heading=heading,
+            site_id=CONFIG['SummitLearning_downloadcsv_interface']['site_id'],
+            academic_year=CONFIG['SummitLearning_downloadcsv_interface']['downloads_academic_year'],
+        )
+
+        self.assertTrue(isinstance(result, pd.DataFrame))
+
+        print(result.head())
+
+    # @unittest.skip('running subset of tests')
+    def test_download_site_data_download_student_mentoring(self):
+        heading = "Student Mentoring Data for Currently Enrolled Students"
 
         result = self.sl_dlcsv.download_site_data_download(
             dl_heading=heading,
