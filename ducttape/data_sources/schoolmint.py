@@ -109,11 +109,31 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
             self.log.info('No MFA prompt appeared.')
 
         if(mfa_needed):
-            self.log.info('Waiting 10 seconds to ensure MFA email is sent.')
-            time.sleep(10)
+            mfa_delay_in_seconds = 60
+            max_mfa_retrieval_attempts = 5
+            current_retrieval_attempts_completed = 0
 
-            self.log.info('Getting MFA code from email.')
-            mfa_code = self._get_latest_schoolmint_code_from_mfa_email(service = self.gmail_service, max_results=5, max_age_minutes=5)
+            mfa_code_found = False
+
+            while mfa_code_found == False and current_retrieval_attempts_completed < max_mfa_retrieval_attempts:
+                self.log.info('='*100)
+                self.log.info(f'MFA Retrieval Attempt #{current_retrieval_attempts_completed + 1}')
+                self.log.info(f'Waiting {mfa_delay_in_seconds} seconds before attempting to retrieve MFA code.')
+                time.sleep(mfa_delay_in_seconds)
+
+                try:
+                    self.log.info('Attempting to get the MFA code from email.')
+                    mfa_code = self._get_latest_schoolmint_code_from_mfa_email(service = self.gmail_service, max_results=5, max_age_minutes=5)
+                    self.log.info('MFA code found.')
+                    mfa_code_found = True
+                except:
+                    self.log.info('Exception caught. Ending this retrieval attempt.')
+                    current_retrieval_attempts_completed += 1
+
+            if mfa_code_found == False:
+                self.log.info(f'MFA code not found in email after {max_mfa_retrieval_attempts} with a {mfa_delay_in_seconds}-second wait between attempts. Ending execution.')
+                self.driver.quit()
+                raise NoDataError('No SchoolMint verification code found in email.')
 
             self.log.info('Entering MFA code into prompt.')
             self._enter_mfa_code_into_prompt(mfa_code)
