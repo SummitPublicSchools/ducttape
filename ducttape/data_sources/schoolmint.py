@@ -131,7 +131,7 @@ class SchoolMint(WebUIDataSource, LoggingMixin):
                     current_retrieval_attempts_completed += 1
 
             if mfa_code_found == False:
-                self.log.info(f'MFA code not found in email after {max_mfa_retrieval_attempts} with a {mfa_delay_in_seconds}-second wait between attempts. Ending execution.')
+                self.log.info(f'MFA code not found in email after {max_mfa_retrieval_attempts} attempts with a {mfa_delay_in_seconds}-second wait between attempts. Ending execution.')
                 self.driver.quit()
                 raise NoDataError('No SchoolMint verification code found in email.')
 
